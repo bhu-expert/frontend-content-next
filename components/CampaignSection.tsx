@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Sparkles, Play, Save, Loader2, CheckCircle2, Circle, AlertCircle, FileText, Image as ImageIcon, X, ExternalLink, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchIdeate, fetchBlogIdeate, fetchVisualAsset, fetchBlogGenerate, saveImage, saveBlog, type PostIdea, type BlogTopic } from "@/services/api";
+import { addDays } from "date-fns";
 
 interface CampaignSectionProps {
   userId: string;
@@ -35,6 +36,7 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
   // State for Modal
   const [selectedItem, setSelectedItem] = useState<CampaignItem | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
+  const [campaignInterval, setCampaignInterval] = useState<"none" | "daily" | "weekly">("none");
 
   const addLog = (message: string) => {
     setLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev]);
@@ -96,7 +98,9 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
     const totalItems = items.length;
 
     // Process items sequentially to show progress (and avoid rate limits if any)
+    // Process items sequentially to show progress (and avoid rate limits if any)
     const newItems = [...items];
+    let blogIndex = 0;
 
     for (let i = 0; i < newItems.length; i++) {
         const item = newItems[i];
@@ -111,18 +115,32 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                 const blogContent = await fetchBlogGenerate(userId, brandId, item.title);
                 
                 addLog(`Saving Blog to Asset Hub...`);
+
+                let finalScheduledDate: Date | undefined;
+                if (scheduledDate) {
+                    const baseDate = new Date(scheduledDate);
+                    if (campaignInterval === "daily") {
+                        finalScheduledDate = addDays(baseDate, blogIndex);
+                    } else if (campaignInterval === "weekly") {
+                        finalScheduledDate = addDays(baseDate, blogIndex * 7);
+                    } else {
+                        finalScheduledDate = baseDate;
+                    }
+                }
+
                 await saveBlog({
                     user_id: userId,
                     brand_id: brandId,
                     title: blogContent.title,
                     full_markdown: blogContent.full_markdown,
                     metadata: blogContent.metadata,
-                    status: scheduledDate ? "scheduled" : "published",
-                    scheduled_at: scheduledDate ? new Date(scheduledDate).toISOString() : undefined
+                    status: finalScheduledDate ? "scheduled" : "published",
+                    scheduled_at: finalScheduledDate ? finalScheduledDate.toISOString() : undefined
                 });
                 
                 newItems[i] = { ...item, status: "completed", resultSlug: blogContent.metadata.slug };
                 addLog(`Blog "${item.title}" completed & saved.`);
+                blogIndex++;
 
             } else {
                 addLog(`Rendering Image: "${item.title}"...`);
@@ -353,6 +371,31 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                             Leave blank to publish immediately. Set a time to schedule.
                         </p>
                     </div>
+
+                    {scheduledDate && (
+                        <div className="pt-4 border-t border-card-border">
+                            <label className="text-xs font-mono text-foreground/50 uppercase block mb-2">Scheduling Interval</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {(["none", "daily", "weekly"] as const).map((interval) => (
+                                    <button
+                                        key={interval}
+                                        onClick={() => setCampaignInterval(interval)}
+                                        className={cn(
+                                            "px-3 py-2 rounded-lg text-xs font-bold uppercase transition-all border",
+                                            campaignInterval === interval
+                                                ? "bg-accent-primary text-white border-accent-primary"
+                                                : "bg-card border-card-border text-foreground/50 hover:border-accent-primary/50"
+                                        )}
+                                    >
+                                        {interval === "none" ? "All Correct" : interval}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[10px] text-foreground/40 mt-1.5">
+                                {campaignInterval === "none" ? "All posts published at the same time." : `Posts staggered ${campaignInterval} starting from the set date.`}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex gap-2">

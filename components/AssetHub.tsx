@@ -13,10 +13,11 @@ import {
     Loader2,
     Maximize2,
     Minimize2,
-    X
+    X,
+    Pencil
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SavedImage, SavedBlog, fetchSavedImages, fetchSavedBlogs, deleteSavedImage, deleteSavedBlog } from "@/services/api";
+import { SavedImage, SavedBlog, fetchSavedImages, fetchSavedBlogs, deleteSavedImage, deleteSavedBlog, updateBlog } from "@/services/api";
 import ReactMarkdown from "react-markdown";
 
 interface AssetHubProps {
@@ -33,7 +34,22 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedBlog, setSelectedBlog] = useState<SavedBlog | null>(null);
     const [isFullScreen, setIsFullScreen] = useState(false);
+    
+    // Editing State
+    const [isEditing, setIsEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState("");
+    const [editContent, setEditContent] = useState("");
+    const [editStatus, setEditStatus] = useState<"draft" | "scheduled" | "published">("draft");
+    const [editScheduledAt, setEditScheduledAt] = useState("");
 
+    useEffect(() => {
+        if (selectedBlog) {
+            setEditTitle(selectedBlog.title);
+            setEditContent(selectedBlog.full_markdown);
+            setEditStatus(selectedBlog.status);
+            setEditScheduledAt(selectedBlog.scheduled_at ? selectedBlog.scheduled_at.slice(0, 16) : "");
+        }
+    }, [selectedBlog]);
     useEffect(() => {
         loadAssets();
     }, [userId, brandId]);
@@ -69,6 +85,46 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
             // Revert on failure
             loadAssets();
             alert("Failed to delete blog");
+        }
+    };
+
+    const handleStatusUpdate = async (id: string, newStatus: "draft" | "scheduled" | "published") => {
+        try {
+            const updatedBlog = await updateBlog(id, { status: newStatus });
+            
+            // Update local state
+            setBlogs(prev => prev.map(b => b.id === id ? updatedBlog : b));
+            if (selectedBlog?.id === id) {
+                setSelectedBlog(updatedBlog);
+            }
+            
+            alert(`Blog status updated to ${newStatus}!`);
+        } catch (error) {
+            console.error("Failed to update blog status:", error);
+            alert("Failed to update blog status");
+        }
+    };
+
+    const handleUpdateBlog = async () => {
+        if (!selectedBlog) return;
+        
+        try {
+            const updatedBlog = await updateBlog(selectedBlog.id, {
+                title: editTitle,
+                full_markdown: editContent,
+                status: editStatus,
+                scheduled_at: editStatus === "scheduled" ? new Date(editScheduledAt).toISOString() : undefined
+            });
+            
+            // Update local state
+            setBlogs(prev => prev.map(b => b.id === selectedBlog.id ? updatedBlog : b));
+            setSelectedBlog(updatedBlog);
+            setIsEditing(false);
+            
+            alert("Blog updated successfully!");
+        } catch (error) {
+            console.error("Failed to update blog:", error);
+            alert("Failed to update blog content");
         }
     };
 
@@ -249,8 +305,13 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                             </div>
 
                             <div className="mt-auto w-full pt-4 border-t border-dashed border-card-border flex items-center justify-between">
-                                <span className="text-[10px] bg-accent-secondary/10 text-accent-secondary px-2 py-1 rounded-md uppercase tracking-wider font-bold">
-                                    Published
+                                <span className={cn(
+                                    "text-[10px] px-2 py-1 rounded-md uppercase tracking-wider font-bold",
+                                    blog.status === 'published' ? "bg-accent-secondary/10 text-accent-secondary" :
+                                    blog.status === 'scheduled' ? "bg-amber-500/10 text-amber-500" :
+                                    "bg-foreground/10 text-foreground/40"
+                                )}>
+                                    {blog.status || 'Draft'}
                                 </span>
                                 <span className="text-[10px] text-foreground/30 font-mono">
                                     {new Date(blog.created_at).toLocaleDateString()}
@@ -299,24 +360,59 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
+                                {isEditing ? (
+                                    <>
+                                        <button 
+                                            onClick={handleUpdateBlog}
+                                            className="bg-accent-primary text-white px-4 py-2 rounded-lg text-xs font-bold uppercase hover:bg-accent-primary/90 transition-all"
+                                        >
+                                            Save Changes
+                                        </button>
+                                        <button 
+                                            onClick={() => { setIsEditing(false); }}
+                                            className="glass-button px-4 py-2 rounded-lg text-xs font-bold uppercase hover:bg-white/5 transition-all text-foreground/60"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button 
+                                            onClick={() => setIsEditing(true)}
+                                            className="glass-button p-2 text-foreground/40 hover:text-foreground transition-all"
+                                            title="Edit Blog"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        {selectedBlog.status !== 'published' && (
+                                            <button 
+                                                onClick={() => handleStatusUpdate(selectedBlog.id, 'published')}
+                                                className="bg-accent-secondary text-white px-4 py-2 rounded-lg text-xs font-bold uppercase hover:bg-accent-secondary/90 transition-all flex items-center gap-2"
+                                            >
+                                                <FileText className="w-4 h-4" />
+                                                Publish Now
+                                            </button>
+                                        )}
+                                        <button 
+                                            onClick={() => setIsFullScreen(!isFullScreen)}
+                                            className="glass-button p-2 text-foreground/40 hover:text-foreground transition-all"
+                                            title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                                        >
+                                            {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                                        </button>
+                                        <a 
+                                            href={`/blog/${selectedBlog.metadata.slug}`} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="glass-button p-2 text-foreground/40 hover:text-foreground transition-all flex items-center justify-center"
+                                            title="Open formatted blog"
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                        </a>
+                                    </>
+                                )}
                                 <button 
-                                    onClick={() => setIsFullScreen(!isFullScreen)}
-                                    className="glass-button p-2 text-foreground/40 hover:text-foreground transition-all"
-                                    title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
-                                >
-                                    {isFullScreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                                </button>
-                                <a 
-                                    href={`/blog/${selectedBlog.metadata.slug}`} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="glass-button p-2 text-foreground/40 hover:text-foreground transition-all flex items-center justify-center"
-                                    title="Open formatted blog"
-                                >
-                                    <ExternalLink className="w-4 h-4" />
-                                </a>
-                                <button 
-                                    onClick={() => { setSelectedBlog(null); setIsFullScreen(false); }}
+                                    onClick={() => { setSelectedBlog(null); setIsFullScreen(false); setIsEditing(false); }}
                                     className="p-2 hover:bg-foreground/5 rounded-full transition-colors text-foreground/40 hover:text-foreground"
                                 >
                                     <X className="w-5 h-5" />
@@ -327,49 +423,117 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                         {/* Modal Body */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-8 bg-background/50">
                             <div className={cn("mx-auto transition-all", isFullScreen ? "max-w-5xl" : "max-w-3xl")}>
-                                {selectedBlog.cover_image || selectedBlog.metadata?.cover_image ? (
-                                    <div className="mb-8 rounded-xl overflow-hidden w-full h-[300px] relative">
-                                        <img 
-                                            src={selectedBlog.cover_image || selectedBlog.metadata?.cover_image} 
-                                            alt={selectedBlog.title}
-                                            className="w-full h-full object-cover"
-                                        />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-50" />
+                                {isEditing ? (
+                                    <div className="space-y-8 animate-in fade-in duration-300">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-mono uppercase tracking-widest text-foreground/30 ml-1">Editorial Title</label>
+                                            <input 
+                                                type="text" 
+                                                value={editTitle}
+                                                onChange={(e) => setEditTitle(e.target.value)}
+                                                className="w-full bg-white/5 border border-white/5 rounded-xl px-6 py-4 text-xl font-bold focus:outline-none focus:border-accent-primary/50 transition-all"
+                                                placeholder="Enter blog title..."
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-mono uppercase tracking-widest text-foreground/30 ml-1">Publication Status</label>
+                                                <select 
+                                                    value={editStatus}
+                                                    onChange={(e) => setEditStatus(e.target.value as any)}
+                                                    className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent-primary/50 transition-all appearance-none cursor-pointer"
+                                                >
+                                                    <option value="draft" className="bg-background">Draft</option>
+                                                    <option value="published" className="bg-background">Published</option>
+                                                    <option value="scheduled" className="bg-background">Scheduled</option>
+                                                </select>
+                                            </div>
+
+                                            {editStatus === "scheduled" && (
+                                                <div className="space-y-2 animate-in slide-in-from-left-4">
+                                                    <label className="text-[10px] font-mono uppercase tracking-widest text-foreground/30 ml-1">Release Schedule</label>
+                                                    <input 
+                                                        type="datetime-local" 
+                                                        value={editScheduledAt}
+                                                        onChange={(e) => setEditScheduledAt(e.target.value)}
+                                                        className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-accent-primary/50 transition-all"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-mono uppercase tracking-widest text-foreground/30 ml-1">Narrative Content (Markdown)</label>
+                                            <textarea 
+                                                value={editContent}
+                                                onChange={(e) => setEditContent(e.target.value)}
+                                                className="w-full bg-white/5 border border-white/5 rounded-xl px-6 py-6 text-base font-mono leading-relaxed focus:outline-none focus:border-accent-primary/50 transition-all min-h-[500px] custom-scrollbar"
+                                                placeholder="Start writing your story..."
+                                            />
+                                        </div>
                                     </div>
-                                ) : null}
-
-                                <h1 className="text-4xl md:text-5xl font-extrabold mb-8 text-foreground tracking-tight leading-tight">
-                                    {selectedBlog.title}
-                                </h1>
-                                
-                                <div className="flex items-center gap-4 mb-10 text-xs font-mono text-foreground/40 border-b border-card-border pb-6">
-                                    <span className="flex items-center gap-1.5">
-                                        <Clock className="w-3 h-3" />
-                                        {new Date(selectedBlog.created_at).toLocaleDateString()}
-                                    </span>
-                                    <span>•</span>
-                                    <span className="uppercase text-accent-secondary">{selectedBlog.metadata?.keywords?.length || 0} Keywords</span>
-                                    <span>•</span>
-                                    <span>{selectedBlog.full_markdown.length} Characters</span>
-                                </div>
-
-                                <div className="prose prose-invert prose-lg max-w-none text-foreground/80 leading-relaxed react-markdown-container">
-                                    <ReactMarkdown
-                                        components={{
-                                            img: (props) => (
+                                ) : (
+                                    <>
+                                        {selectedBlog.cover_image || selectedBlog.metadata?.cover_image ? (
+                                            <div className="mb-8 rounded-xl overflow-hidden w-full h-[300px] relative">
                                                 <img 
-                                                    {...props} 
-                                                    className="w-full h-auto rounded-lg my-8 border border-white/5 shadow-2xl"
+                                                    src={selectedBlog.cover_image || selectedBlog.metadata?.cover_image} 
+                                                    alt={selectedBlog.title}
+                                                    className="w-full h-full object-cover"
                                                 />
-                                            ),
-                                            a: (props) => (
-                                                <a {...props} className="text-accent-primary hover:underline hover:text-accent-secondary transition-colors" target="_blank" rel="noopener noreferrer" />
-                                            )
-                                        }}
-                                    >
-                                        {selectedBlog.full_markdown.replace(/^#\s+.+\n/, '')} 
-                                    </ReactMarkdown>
-                                </div>
+                                                <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-50" />
+                                            </div>
+                                        ) : null}
+
+                                        <h1 className="text-4xl md:text-5xl font-extrabold mb-8 text-foreground tracking-tight leading-tight">
+                                            {selectedBlog.title}
+                                        </h1>
+                                        
+                                        <div className="flex items-center gap-4 mb-10 text-xs font-mono text-foreground/40 border-b border-card-border pb-6">
+                                            <span className="flex items-center gap-1.5">
+                                                <Clock className="w-3 h-3" />
+                                                {new Date(selectedBlog.created_at).toLocaleDateString()}
+                                            </span>
+                                            <span className={cn(
+                                                "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                                selectedBlog.status === 'published' ? "bg-accent-secondary/10 text-accent-secondary" :
+                                                selectedBlog.status === 'scheduled' ? "bg-amber-500/10 text-amber-500" :
+                                                "bg-foreground/10 text-foreground/40"
+                                            )}>
+                                                {selectedBlog.status}
+                                            </span>
+                                            {selectedBlog.status === 'scheduled' && selectedBlog.scheduled_at && (
+                                                <span className="text-amber-500/60 flex items-center gap-1.5">
+                                                    <Clock className="w-3 h-3" />
+                                                    {new Date(selectedBlog.scheduled_at).toLocaleString()}
+                                                </span>
+                                            )}
+                                            <span>•</span>
+                                            <span className="uppercase text-accent-secondary">{selectedBlog.metadata?.keywords?.length || 0} Keywords</span>
+                                            <span>•</span>
+                                            <span>{selectedBlog.full_markdown.length} Characters</span>
+                                        </div>
+
+                                        <div className="prose prose-invert prose-lg max-w-none text-foreground/80 leading-relaxed react-markdown-container">
+                                            <ReactMarkdown
+                                                components={{
+                                                    img: (props) => (
+                                                        <img 
+                                                            {...props} 
+                                                            className="w-full h-auto rounded-lg my-8 border border-white/5 shadow-2xl"
+                                                        />
+                                                    ),
+                                                    a: (props) => (
+                                                        <a {...props} className="text-accent-primary hover:underline hover:text-accent-secondary transition-colors" target="_blank" rel="noopener noreferrer" />
+                                                    )
+                                                }}
+                                            >
+                                                {selectedBlog.full_markdown.replace(/^#\s+.+\n/, '')} 
+                                            </ReactMarkdown>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
 

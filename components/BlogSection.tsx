@@ -45,7 +45,7 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                 title: blogContent.title,
                 full_markdown: blogContent.full_markdown,
                 metadata: blogContent.metadata,
-                status: "draft",
+                status: "published",
                 cover_image: blogContent.metadata.cover_image
             });
             alert("Blog saved to hub!");

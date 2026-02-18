@@ -405,6 +405,28 @@ export async function deleteSavedBlog(blogId: string): Promise<void> {
   if (!response.ok) throw new Error("Failed to delete blog");
 }
 
+export async function updateBlog(
+  blogId: string,
+  data: {
+    title?: string;
+    full_markdown?: string;
+    status?: "draft" | "scheduled" | "published";
+    scheduled_at?: string;
+  },
+): Promise<SavedBlog> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/assets/blogs/${blogId}`,
+    {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(data),
+    },
+  );
+  if (!response.ok) throw new Error("Failed to update blog");
+  return response.json();
+}
+
 export async function fetchApiKeys(brandId: string): Promise<ApiKey[]> {
   const headers = await getAuthHeaders();
   const response = await fetch(
