@@ -1,5 +1,22 @@
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL;
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+
+import { createClient } from "@/lib/supabase/client";
+const supabase = createClient();
+
+async function getAuthHeaders() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new Error("Not authenticated");
+  }
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session.access_token}`,
+  };
+}
 
 export interface Brand {
   id: string;
@@ -105,9 +122,10 @@ export async function fetchIdeate(
   numIdeas: number = 5,
   context?: string,
 ): Promise<IdeationResponse> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/v1/agent/ideate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       user_id: userId,
       brand_id: brandId,
@@ -124,9 +142,10 @@ export async function fetchVisualAsset(
   brandId: string,
   message: string,
 ): Promise<AgentResponse> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/v1/agent/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ user_id: userId, brand_id: brandId, message }),
   });
   if (!response.ok) throw new Error("Failed to generate visual asset");
@@ -139,9 +158,10 @@ export async function submitFeedback(
   liked: boolean,
   comment?: string,
 ) {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/v1/agent/feedback`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       user_id: userId,
       prompt_used: prompt,
@@ -153,9 +173,16 @@ export async function submitFeedback(
 }
 
 export async function fetchUserBrands(userId: string): Promise<Brand[]> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/data/users/${userId}/brands`,
-  );
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/data/users/me/brands`, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
   if (!response.ok) throw new Error("Failed to fetch brands");
   const data = await response.json();
   return data.data; // Backend returns {status: "success", data: [...]}
@@ -165,9 +192,10 @@ export async function createBrand(
   userId: string,
   brandData: Omit<Brand, "id">,
 ): Promise<Brand> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/v1/data/brands`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ ...brandData, user_id: userId }),
   });
   if (!response.ok) throw new Error("Failed to create brand");
@@ -182,9 +210,10 @@ export async function fetchBlogIdeate(
   context?: string,
   numIdeas: number = 5,
 ): Promise<BlogIdeationResponse> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/ideate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       user_id: userId,
       brand_id: brandId,
@@ -201,9 +230,10 @@ export async function fetchBlogGenerate(
   brandId: string,
   topic: string,
 ): Promise<BlogResponse> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/generate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({ user_id: userId, brand_id: brandId, topic }),
   });
   if (!response.ok) throw new Error("Failed to generate blog content");
@@ -215,10 +245,20 @@ export async function fetchSavedImages(
   userId: string,
   brandId?: string,
 ): Promise<SavedImage[]> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
   const url = brandId
-    ? `${API_BASE_URL}/api/v1/data/assets/images?user_id=${userId}&brand_id=${brandId}`
-    : `${API_BASE_URL}/api/v1/data/assets/images?user_id=${userId}`;
-  const response = await fetch(url);
+    ? `${API_BASE_URL}/api/v1/data/assets/images?brand_id=${brandId}`
+    : `${API_BASE_URL}/api/v1/data/assets/images`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
   if (!response.ok) throw new Error("Failed to fetch saved images");
   return response.json();
 }
@@ -226,9 +266,10 @@ export async function fetchSavedImages(
 export async function saveImage(
   request: SaveImageRequest,
 ): Promise<SavedImage> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/v1/data/assets/images`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(request),
   });
   if (!response.ok) throw new Error("Failed to save image");
@@ -239,18 +280,29 @@ export async function fetchSavedBlogs(
   userId: string,
   brandId?: string,
 ): Promise<SavedBlog[]> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
   const url = brandId
-    ? `${API_BASE_URL}/api/v1/data/assets/blogs?user_id=${userId}&brand_id=${brandId}`
-    : `${API_BASE_URL}/api/v1/data/assets/blogs?user_id=${userId}`;
-  const response = await fetch(url);
+    ? `${API_BASE_URL}/api/v1/data/assets/blogs?brand_id=${brandId}`
+    : `${API_BASE_URL}/api/v1/data/assets/blogs`;
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
   if (!response.ok) throw new Error("Failed to fetch saved blogs");
   return response.json();
 }
 
 export async function saveBlog(request: SaveBlogRequest): Promise<SavedBlog> {
+  const headers = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}/api/v1/data/assets/blogs`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(request),
   });
   if (!response.ok) throw new Error("Failed to save blog");
