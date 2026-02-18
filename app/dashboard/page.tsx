@@ -9,6 +9,7 @@ import { IdeaModal } from "@/components/IdeaModal";
 import { BlogSection } from "@/components/BlogSection";
 import { AssetHub } from "@/components/AssetHub";
 import { CampaignSection } from "@/components/CampaignSection";
+import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { Sparkles, BrainCircuit, Waves, Palette } from "lucide-react";
 import { fetchIdeate, fetchVisualAsset, fetchUserBrands, submitFeedback, createBrand, type PostIdea, type Brand } from "@/services/api";
 import { createClient } from "@/lib/supabase/client";
@@ -25,7 +26,7 @@ export default function DashboardPage() {
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
   const [genStatus, setGenStatus] = useState<string>("");
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"strategy" | "brand" | "blog" | "hub" | "campaign">("strategy");
+  const [activeTab, setActiveTab] = useState<"strategy" | "brand" | "blog" | "hub" | "campaign" | "integrations">("strategy");
   const [assetHubInitialView, setAssetHubInitialView] = useState<"gallery" | "editorial">("gallery");
   const [directInput, setDirectInput] = useState("");
   const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
@@ -249,6 +250,8 @@ export default function DashboardPage() {
               />
             ) : activeTab === "hub" ? (
               <AssetHub userId={user.id} brandId={activeBrand.id} initialView={assetHubInitialView} />
+            ) : activeTab === "integrations" ? (
+              <IntegrationsSection brandId={activeBrand.id} />
             ) : (
               <div className="flex gap-8 flex-1">
                 {/* Left Column: Ideation */}

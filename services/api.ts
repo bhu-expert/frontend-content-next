@@ -308,3 +308,38 @@ export async function saveBlog(request: SaveBlogRequest): Promise<SavedBlog> {
   if (!response.ok) throw new Error("Failed to save blog");
   return response.json();
 }
+
+// API Key Management
+export interface ApiKey {
+  id: string;
+  brand_id: string;
+  key: string;
+  name: string;
+  created_at: string;
+}
+
+export async function fetchApiKeys(brandId: string): Promise<ApiKey[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/brands/${brandId}/keys`,
+    { headers },
+  );
+  if (!response.ok) throw new Error("Failed to fetch API keys");
+  const data = await response.json();
+  return data.data ?? data;
+}
+
+export async function generateApiKey(brandId: string): Promise<ApiKey> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/brands/${brandId}/keys`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Website Key" }),
+    },
+  );
+  if (!response.ok) throw new Error("Failed to generate API key");
+  const data = await response.json();
+  return data.data ?? data;
+}
