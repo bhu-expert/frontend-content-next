@@ -105,7 +105,7 @@ export async function fetchIdeate(
   numIdeas: number = 5,
   context?: string,
 ): Promise<IdeationResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/agent/ideate/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/agent/ideate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -124,7 +124,7 @@ export async function fetchVisualAsset(
   brandId: string,
   message: string,
 ): Promise<AgentResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/agent/chat/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/agent/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ user_id: userId, brand_id: brandId, message }),
@@ -139,7 +139,7 @@ export async function submitFeedback(
   liked: boolean,
   comment?: string,
 ) {
-  const response = await fetch(`${API_BASE_URL}/api/v1/agent/feedback/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/agent/feedback`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -154,7 +154,7 @@ export async function submitFeedback(
 
 export async function fetchUserBrands(userId: string): Promise<Brand[]> {
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/data/users/${userId}/brands/`,
+    `${API_BASE_URL}/api/v1/data/users/${userId}/brands`,
   );
   if (!response.ok) throw new Error("Failed to fetch brands");
   const data = await response.json();
@@ -165,7 +165,7 @@ export async function createBrand(
   userId: string,
   brandData: Omit<Brand, "id">,
 ): Promise<Brand> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/data/brands/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/data/brands`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...brandData, user_id: userId }),
