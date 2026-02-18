@@ -112,6 +112,9 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
         newItems[i] = { ...item, status: "generating" };
         setItems([...newItems]);
         
+        // Add a 2s delay to prevent rate limits
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         try {
             if (item.type === "blog") {
                 addLog(`Generating Blog: "${item.title}"...`);

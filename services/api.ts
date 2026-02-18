@@ -133,7 +133,7 @@ export async function fetchIdeate(
   const headers = await getAuthHeaders();
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s
+  const timeoutId = setTimeout(() => controller.abort(), 600000); // 600s
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/v1/agent/ideate`, {
@@ -164,7 +164,7 @@ export async function fetchVisualAsset(
   const headers = await getAuthHeaders();
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s
+  const timeoutId = setTimeout(() => controller.abort(), 600000); // 600s
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/v1/agent/chat`, {
@@ -244,7 +244,7 @@ export async function fetchBlogIdeate(
   const headers = await getAuthHeaders();
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s
+  const timeoutId = setTimeout(() => controller.abort(), 600000); // 600s
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/ideate`, {
@@ -277,7 +277,7 @@ export async function fetchBlogGenerate(
 
   // Create a controller for custom timeout (5 minutes)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 300000); // 300 seconds
+  const timeoutId = setTimeout(() => controller.abort(), 600000); // 600 seconds
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/generate`, {
