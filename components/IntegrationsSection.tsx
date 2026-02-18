@@ -154,60 +154,72 @@ export const IntegrationsSection = ({ brandId }: IntegrationsSectionProps) => {
 
 import { useState, useEffect } from "react";
 
-const API_URL = "${API_BASE_URL}/api/v1/public/blogs";
+const API_URL = "${API_BASE_URL}/api/v1/public";
 
 interface Blog {
+  id: string;
   title: string;
-  slug: string;
   full_markdown: string;
-  metadata: {
-    meta_title: string;
-    meta_description: string;
-    keywords: string[];
-  };
+  metadata: any;
+  created_at: string;
+  slug: string; // Helper for routing
 }
 
-export function useContentAgent(apiKey: string) {
+export function useContentAgent(apiKey: string, slug?: string) {
   const [blogs, setBlogs] = useState<Blog[]>([]);
+  const [blog, setBlog] = useState<Blog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(API_URL, {
-      headers: { "X-Content-Agent-Key": apiKey },
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch blogs");
-        return res.json();
-      })
-      .then((data) => setBlogs(data.data ?? data))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [apiKey]);
+    if (!apiKey) return;
 
-  return { blogs, loading, error };
+    async function fetchData() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        if (slug) {
+          // Fetch single blog
+          const response = await fetch(\`\${API_URL}/blogs/\${slug}\`, {
+            headers: { "X-Content-Agent-Key": apiKey },
+          });
+
+          if (!response.ok)
+            throw new Error(\`Failed to fetch blog: \${response.status}\`);
+
+          const data = await response.json();
+          setBlog(data);
+        } else {
+          // Fetch list
+          const response = await fetch(\`\${API_URL}/blogs\`, {
+            headers: { "X-Content-Agent-Key": apiKey },
+          });
+
+          if (!response.ok)
+            throw new Error(\`Failed to fetch blogs: \${response.status}\`);
+
+          const data = await response.json();
+          setBlogs(data);
+        }
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [apiKey, slug]);
+
+  return { blogs, blog, loading, error };
 }
 
-// --- Usage in a component ---
+// --- Usage in a component (List) ---
+// const { blogs } = useContentAgent("${userKey}");
 
-import { useContentAgent } from "./hooks/useContentAgent";
-
-const BlogFeed = () => {
-  const { blogs, loading, error } = useContentAgent("${userKey}");
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error: {error}</p>;
-
-  return (
-    <div>
-      {blogs.map(blog => (
-        <article key={blog.slug}>
-          <h2>{blog.title}</h2>
-        </article>
-      ))}
-    </div>
-  );
-};`;
+// --- Usage in a component (Single) ---
+// const { blog } = useContentAgent("${userKey}", "my-blog-slug");`;
 
   const wordpressInstructions = `1. Download the Content Agent WordPress plugin.
 2. Go to WordPress Admin → Plugins → Add New → Upload Plugin.
