@@ -44,7 +44,9 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                 brand_id: brandId,
                 title: blogContent.title,
                 full_markdown: blogContent.full_markdown,
-                metadata: blogContent.metadata
+                metadata: blogContent.metadata,
+                status: "draft",
+                cover_image: blogContent.metadata.cover_image
             });
             alert("Blog saved to hub!");
         } catch (e: any) {
@@ -306,6 +308,22 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        ) : error ? (
+                            <div className="h-full flex flex-col items-center justify-center text-red-500/80 p-12 text-center">
+                                <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6 animate-pulse">
+                                    <BrainCircuit className="w-10 h-10" />
+                                </div>
+                                <h3 className="text-xl font-bold uppercase tracking-widest mb-2">Generation Interrupted</h3>
+                                <p className="font-mono text-sm max-w-md bg-red-500/5 p-4 rounded-xl border border-red-500/20">
+                                    {error}
+                                </p>
+                                <button 
+                                    onClick={() => setError(null)}
+                                    className="mt-8 px-6 py-2 bg-card border border-card-border hover:border-red-500/30 rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
+                                >
+                                    Dismiss Signal
+                                </button>
                             </div>
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center opacity-10 grayscale">

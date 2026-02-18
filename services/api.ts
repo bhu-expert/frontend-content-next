@@ -90,6 +90,7 @@ export interface SaveBlogRequest {
   metadata: any;
   status?: "draft" | "scheduled" | "published";
   scheduled_at?: string;
+  cover_image?: string;
 }
 
 // Blog Interfaces
@@ -113,6 +114,7 @@ export interface BlogMetadata {
   meta_description: string;
   slug: string;
   keywords: string[];
+  cover_image?: string;
 }
 
 export interface BlogResponse {
@@ -129,18 +131,29 @@ export async function fetchIdeate(
   context?: string,
 ): Promise<IdeationResponse> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/v1/agent/ideate`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      user_id: userId,
-      brand_id: brandId,
-      num_ideas: numIdeas,
-      context: context,
-    }),
-  });
-  if (!response.ok) throw new Error("Failed to fetch ideas");
-  return response.json();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/agent/ideate`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        user_id: userId,
+        brand_id: brandId,
+        num_ideas: numIdeas,
+        context: context,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error("Failed to fetch ideas");
+    return response.json();
+  } catch (error: any) {
+    if (error.name === "AbortError") throw new Error("Ideation timed out.");
+    throw error;
+  }
 }
 
 export async function fetchVisualAsset(
@@ -149,13 +162,25 @@ export async function fetchVisualAsset(
   message: string,
 ): Promise<AgentResponse> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/v1/agent/chat`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ user_id: userId, brand_id: brandId, message }),
-  });
-  if (!response.ok) throw new Error("Failed to generate visual asset");
-  return response.json();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/agent/chat`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ user_id: userId, brand_id: brandId, message }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error("Failed to generate visual asset");
+    return response.json();
+  } catch (error: any) {
+    if (error.name === "AbortError")
+      throw new Error("Visual generation timed out.");
+    throw error;
+  }
 }
 
 export async function submitFeedback(
@@ -217,18 +242,30 @@ export async function fetchBlogIdeate(
   numIdeas: number = 5,
 ): Promise<BlogIdeationResponse> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/ideate`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      user_id: userId,
-      brand_id: brandId,
-      context,
-      num_ideas: numIdeas,
-    }),
-  });
-  if (!response.ok) throw new Error("Failed to fetch blog ideas");
-  return response.json();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 300000); // 300s
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/ideate`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        user_id: userId,
+        brand_id: brandId,
+        context,
+        num_ideas: numIdeas,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error("Failed to fetch blog ideas");
+    return response.json();
+  } catch (error: any) {
+    if (error.name === "AbortError")
+      throw new Error("Blog ideation timed out.");
+    throw error;
+  }
 }
 
 export async function fetchBlogGenerate(
@@ -237,13 +274,31 @@ export async function fetchBlogGenerate(
   topic: string,
 ): Promise<BlogResponse> {
   const headers = await getAuthHeaders();
-  const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/generate`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ user_id: userId, brand_id: brandId, topic }),
-  });
-  if (!response.ok) throw new Error("Failed to generate blog content");
-  return response.json();
+
+  // Create a controller for custom timeout (5 minutes)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 300000); // 300 seconds
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/generate`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ user_id: userId, brand_id: brandId, topic }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) throw new Error("Failed to generate blog content");
+    return response.json();
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      throw new Error(
+        "Generation timed out. The agent is taking longer than expected.",
+      );
+    }
+    throw error;
+  }
 }
 
 // Asset Hub Functions
