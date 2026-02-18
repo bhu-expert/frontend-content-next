@@ -12,7 +12,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{message: string, type: 'error' | 'success'} | null>(null);
   
   const router = useRouter();
   const supabase = createClient();
@@ -22,7 +22,7 @@ export default function AuthPage() {
     setLoading(true);
     setError(null);
 
-    const { error: authError } = isLogin
+    const { data, error: authError } = isLogin
       ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({ 
           email, 
@@ -31,11 +31,20 @@ export default function AuthPage() {
         });
 
     if (authError) {
-      setError(authError.message);
+      setError({ message: authError.message, type: 'error' });
       setLoading(false);
     } else {
-      router.push("/dashboard");
-      router.refresh();
+      setLoading(false);
+      // If we're signing up and there's no session, it means email verification is required
+      if (!isLogin && !data.session) {
+        setError({ 
+          message: "Account created! Please check your email for a verification link to activate your access.", 
+          type: 'success' 
+        });
+      } else {
+        router.push("/dashboard");
+        router.refresh();
+      }
     }
   };
 
@@ -88,22 +97,27 @@ export default function AuthPage() {
             </div>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs p-3 rounded-lg flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4" />
-                {error}
+              <div className={cn(
+                "border text-xs p-3 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2",
+                error.type === 'success' 
+                  ? "bg-green-500/10 border-green-500/20 text-green-500" 
+                  : "bg-red-500/10 border-red-500/20 text-red-500"
+              )}>
+                {error.type === 'success' ? <ShieldCheck className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                {error.message}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-white text-black font-bold py-3.5 rounded-xl hover:bg-white/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4"
+              disabled={loading || (error?.type === 'success')}
+              className="w-full bg-white text-black font-bold py-3.5 rounded-xl hover:bg-white/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  {isLogin ? "Sign In" : "Request Access"}
+                  {isLogin ? "Sign In" : "Create Account"}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
@@ -121,7 +135,7 @@ export default function AuthPage() {
         </div>
 
         <p className="mt-8 text-center text-sm text-white/30">
-          {isLogin ? "New to the agency?" : "Already have access?"}{" "}
+          {isLogin ? "Joining the agency?" : "Already have access?"}{" "}
           <button
             onClick={() => setIsLogin(!isLogin)}
             className="text-white font-semibold hover:underline decoration-blue-500/50 underline-offset-4"

@@ -17,6 +17,7 @@ import {
     Pencil
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format, parseISO } from "date-fns";
 import { SavedImage, SavedBlog, fetchSavedImages, fetchSavedBlogs, deleteSavedImage, deleteSavedBlog, updateBlog } from "@/services/api";
 import ReactMarkdown from "react-markdown";
 
@@ -506,7 +507,7 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                                             {selectedBlog.status === 'scheduled' && selectedBlog.scheduled_at && (
                                                 <span className="text-amber-500/60 flex items-center gap-1.5">
                                                     <Clock className="w-3 h-3" />
-                                                    {new Date(selectedBlog.scheduled_at).toLocaleString()}
+                                                    {format(parseISO(selectedBlog.scheduled_at), "PPP p")} IST
                                                 </span>
                                             )}
                                             <span>•</span>

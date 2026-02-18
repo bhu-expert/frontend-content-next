@@ -148,7 +148,7 @@ export const CalendarSection = ({ userId, brandId }: CalendarSectionProps) => {
                                 {blog.status === 'scheduled' && blog.scheduled_at && (
                                     <div className="text-xs text-accent-primary/80 flex items-center gap-1.5 bg-accent-primary/5 w-fit px-2 py-1 rounded">
                                         <Clock className="w-3 h-3" />
-                                        Scheduled for {format(parseISO(blog.scheduled_at), "h:mm a")} UTC
+                                        Scheduled for {format(parseISO(blog.scheduled_at), "h:mm a")} IST
                                     </div>
                                 )}
                             </div>

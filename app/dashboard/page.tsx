@@ -51,10 +51,14 @@ export default function DashboardPage() {
         if (brands.length > 0) {
           setActiveBrand(brands[0]);
         } else {
-          setError("No brands found. Please create a brand in Postman first.");
+          // New user path - not an error, just redirect to brand setup
+          setActiveTab("brand");
         }
       } catch (e: any) {
-        setError(`Failed to load brands: ${e.message}`);
+        // Only set error if it's a real API failure, not just "0 brands"
+        if (e.message !== "Failed to fetch brands") {
+           setError(`System diagnostics alert: ${e.message}`);
+        }
       }
     };
     initDashboard().finally(() => {

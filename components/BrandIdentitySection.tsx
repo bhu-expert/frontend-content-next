@@ -34,19 +34,22 @@ export const BrandIdentitySection = ({ brand, onSubmit }: BrandIdentitySectionPr
   ];
 
   return (
-    <div className="flex-1 max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="glass-card overflow-hidden">
-        <div className="p-8 border-b border-card-border bg-card/50">
-          <h2 className="text-2xl font-bold mb-2 text-foreground">Brand Identity Matrix</h2>
-          <p className="text-foreground/40 text-sm">Define the core parameters that drive the AI's creative engine.</p>
+    <div className="flex-1 max-w-4xl py-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="glass-card overflow-hidden border-card-border/40 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] bg-card">
+        <div className="p-8 border-b border-card-border/50 bg-gradient-to-br from-card to-card/30">
+          <h2 className="text-2xl font-bold mb-2 text-foreground flex items-center gap-3">
+            <span className="w-2 h-8 bg-accent-primary rounded-full" />
+            Brand Identity Matrix
+          </h2>
+          <p className="text-foreground/60 text-sm font-medium ml-5">Define the core parameters that drive the AI's creative engine.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-8">
           <div className="grid grid-cols-2 gap-8">
             {fields.map((field) => (
-              <div key={field.name} className="space-y-3">
-                <label className="text-xs font-mono text-foreground/30 uppercase tracking-[0.2em] flex items-center gap-2">
-                  <field.icon className="w-3 h-3 text-accent-primary" />
+              <div key={field.name} className="space-y-3 group/field">
+                <label className="text-[10px] font-mono text-foreground/70 uppercase tracking-[0.2em] flex items-center gap-2 group-focus-within/field:text-accent-primary transition-colors">
+                  <field.icon className="w-3 h-3 transition-transform group-focus-within/field:scale-110" />
                   {field.label}
                 </label>
                 <input
@@ -54,23 +57,23 @@ export const BrandIdentitySection = ({ brand, onSubmit }: BrandIdentitySectionPr
                   value={(formData as any)[field.name]}
                   onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
                   placeholder={field.placeholder}
-                  className="w-full bg-card border border-card-border rounded-xl px-5 py-3 text-sm focus:outline-none focus:border-accent-primary/50 transition-all font-medium placeholder:text-foreground/20 text-foreground"
+                  className="w-full bg-background border-2 border-card-border/60 rounded-xl px-5 py-3.5 text-sm focus:outline-none focus:border-accent-primary focus:ring-4 focus:ring-accent-primary/10 transition-all font-medium placeholder:text-foreground/30 text-foreground shadow-sm"
                   required
                 />
               </div>
             ))}
           </div>
 
-          <div className="space-y-3">
-            <label className="text-xs font-mono text-foreground/30 uppercase tracking-[0.2em] flex items-center gap-2">
-              <MessageSquare className="w-3 h-3 text-accent-secondary" />
+          <div className="space-y-3 group/field">
+            <label className="text-[10px] font-mono text-foreground/70 uppercase tracking-[0.2em] flex items-center gap-2 group-focus-within/field:text-accent-secondary transition-colors">
+              <MessageSquare className="w-3 h-3 transition-transform group-focus-within/field:scale-110" />
               Core Manifesto / Purpose
             </label>
             <textarea
               value={formData.manifest}
               onChange={(e) => setFormData({ ...formData, manifest: e.target.value })}
               placeholder="What do you represent? Why do you exist? (e.g., We are not a clothing brand. We are a continuation of an idea...)"
-              className="w-full bg-card border border-card-border rounded-xl px-5 py-4 text-sm focus:outline-none focus:border-accent-primary/50 transition-all font-medium min-h-[200px] leading-relaxed placeholder:text-foreground/20 text-foreground"
+              className="w-full bg-background border-2 border-card-border/60 rounded-xl px-5 py-4 text-sm focus:outline-none focus:border-accent-secondary focus:ring-4 focus:ring-accent-secondary/10 transition-all font-medium min-h-[200px] leading-relaxed placeholder:text-foreground/30 text-foreground shadow-sm"
               required
             />
           </div>
