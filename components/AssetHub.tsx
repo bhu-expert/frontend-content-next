@@ -530,7 +530,7 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                                                     )
                                                 }}
                                             >
-                                                {selectedBlog.full_markdown.replace(/^#\s+.+\n/, '')} 
+                                                {selectedBlog.full_markdown.replace(/^\s*#\s+.+?(\n|$)/, '')} 
                                             </ReactMarkdown>
                                         </div>
                                     </>

@@ -37,6 +37,9 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
   const [selectedItem, setSelectedItem] = useState<CampaignItem | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
   const [campaignInterval, setCampaignInterval] = useState<"none" | "daily" | "weekly">("none");
+  const [schedulingMode, setSchedulingMode] = useState<"frequency" | "days">("frequency");
+  const [postsPerWeek, setPostsPerWeek] = useState<number>(3);
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([]); // 1 (Mon) - 7 (Sun)
 
   const addLog = (message: string) => {
     setLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev]);
@@ -119,10 +122,38 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                 let finalScheduledDate: Date | undefined;
                 if (scheduledDate) {
                     const baseDate = new Date(scheduledDate);
+                    
                     if (campaignInterval === "daily") {
                         finalScheduledDate = addDays(baseDate, blogIndex);
                     } else if (campaignInterval === "weekly") {
-                        finalScheduledDate = addDays(baseDate, blogIndex * 7);
+                        if (schedulingMode === "frequency") {
+                            // Even distribution: 7 days / frequency
+                            const gap = 7 / postsPerWeek;
+                            finalScheduledDate = addDays(baseDate, Math.floor(blogIndex * gap));
+                        } else if (schedulingMode === "days" && selectedWeekdays.length > 0) {
+                            // Map specific days. Blog 0 = next upcoming selected day from baseDate, etc.
+                            const sortedDays = [...selectedWeekdays].sort((a, b) => a - b);
+                            let currentDate = new Date(baseDate);
+                            let foundCount = 0;
+                            let safety = 0;
+                            
+                            while (foundCount <= blogIndex && safety < 1000) {
+                                safety++;
+                                // JS getDay() is 0 (Sun) - 6 (Sat). Our UI is 1 (Mon) - 7 (Sun).
+                                let currentDayNormalized = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
+                                if (sortedDays.includes(currentDayNormalized)) {
+                                    if (foundCount === blogIndex) {
+                                        finalScheduledDate = new Date(currentDate);
+                                        break;
+                                    }
+                                    foundCount++;
+                                }
+                                currentDate = addDays(currentDate, 1);
+                            }
+                        } else {
+                            // Default to weekly if no days selected
+                            finalScheduledDate = addDays(baseDate, blogIndex * 7);
+                        }
                     } else {
                         finalScheduledDate = baseDate;
                     }
@@ -373,26 +404,106 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                     </div>
 
                     {scheduledDate && (
-                        <div className="pt-4 border-t border-card-border">
-                            <label className="text-xs font-mono text-foreground/50 uppercase block mb-2">Scheduling Interval</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {(["none", "daily", "weekly"] as const).map((interval) => (
-                                    <button
-                                        key={interval}
-                                        onClick={() => setCampaignInterval(interval)}
-                                        className={cn(
-                                            "px-3 py-2 rounded-lg text-xs font-bold uppercase transition-all border",
-                                            campaignInterval === interval
-                                                ? "bg-accent-primary text-white border-accent-primary"
-                                                : "bg-card border-card-border text-foreground/50 hover:border-accent-primary/50"
-                                        )}
-                                    >
-                                        {interval === "none" ? "All Correct" : interval}
-                                    </button>
-                                ))}
+                        <div className="pt-4 border-t border-card-border space-y-4">
+                            <div>
+                                <label className="text-xs font-mono text-foreground/50 uppercase block mb-3">Scheduling Interval</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(["none", "daily", "weekly"] as const).map((interval) => (
+                                        <button
+                                            key={interval}
+                                            onClick={() => setCampaignInterval(interval)}
+                                            className={cn(
+                                                "px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all border",
+                                                campaignInterval === interval
+                                                    ? "bg-accent-primary text-white border-accent-primary"
+                                                    : "bg-card border-card-border text-foreground/50 hover:border-accent-primary/50"
+                                            )}
+                                        >
+                                            {interval === "none" ? "Instant" : interval}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <p className="text-[10px] text-foreground/40 mt-1.5">
-                                {campaignInterval === "none" ? "All posts published at the same time." : `Posts staggered ${campaignInterval} starting from the set date.`}
+
+                            {campaignInterval === "weekly" && (
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="p-1 bg-card/50 rounded-xl border border-card-border flex">
+                                        <button 
+                                            onClick={() => setSchedulingMode("frequency")}
+                                            className={cn(
+                                                "flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all",
+                                                schedulingMode === "frequency" ? "bg-background text-foreground shadow-sm" : "text-foreground/30 hover:text-foreground/50"
+                                            )}
+                                        >
+                                            Frequency
+                                        </button>
+                                        <button 
+                                            onClick={() => setSchedulingMode("days")}
+                                            className={cn(
+                                                "flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all",
+                                                schedulingMode === "days" ? "bg-background text-foreground shadow-sm" : "text-foreground/30 hover:text-foreground/50"
+                                            )}
+                                        >
+                                            Match Days
+                                        </button>
+                                    </div>
+
+                                    {schedulingMode === "frequency" ? (
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-mono text-foreground/40 uppercase tracking-widest">Posts Per Week</label>
+                                            <select 
+                                                value={postsPerWeek}
+                                                onChange={(e) => setPostsPerWeek(parseInt(e.target.value))}
+                                                className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm focus:border-accent-primary focus:outline-none"
+                                            >
+                                                <option value={1}>1 Post / Week</option>
+                                                <option value={2}>2 Posts / Week</option>
+                                                <option value={3}>3 Posts / Week</option>
+                                                <option value={4}>4 Posts / Week</option>
+                                                <option value={5}>5 Posts / Week</option>
+                                                <option value={7}>Daily (7 Posts)</option>
+                                            </select>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-mono text-foreground/40 uppercase tracking-widest block">Select Publishing Days</label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[
+                                                    { id: 1, label: "M" }, { id: 2, label: "T" }, { id: 3, label: "W" }, 
+                                                    { id: 4, label: "T" }, { id: 5, label: "F" }, { id: 6, label: "S" }, { id: 7, label: "S" }
+                                                ].map((day) => (
+                                                    <button
+                                                        key={day.id}
+                                                        onClick={() => {
+                                                            setSelectedWeekdays(prev => 
+                                                                prev.includes(day.id) ? prev.filter(d => d !== day.id) : [...prev, day.id]
+                                                            );
+                                                        }}
+                                                        className={cn(
+                                                            "w-8 h-8 rounded-full text-[10px] font-bold transition-all border flex items-center justify-center",
+                                                            selectedWeekdays.includes(day.id)
+                                                                ? "bg-accent-secondary text-white border-accent-secondary shadow-[0_0_10px_rgba(168,85,247,0.3)]"
+                                                                : "bg-card border-card-border text-foreground/40 hover:border-foreground/30"
+                                                        )}
+                                                    >
+                                                        {day.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <p className="text-[10px] text-foreground/40 mt-1.5 leading-relaxed">
+                                {campaignInterval === "none" && "• All assets published immediately."}
+                                {campaignInterval === "daily" && "• Assets published once per day sequentially."}
+                                {campaignInterval === "weekly" && schedulingMode === "frequency" && `• ${postsPerWeek} posts per week, spread evenly.`}
+                                {campaignInterval === "weekly" && schedulingMode === "days" && (
+                                    selectedWeekdays.length > 0 
+                                        ? `• Published on selected days: ${selectedWeekdays.length} days/week.`
+                                        : "• Select days to match specific weekdays."
+                                )}
                             </p>
                         </div>
                     )}

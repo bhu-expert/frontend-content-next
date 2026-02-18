@@ -45,7 +45,7 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                 title: blogContent.title,
                 full_markdown: blogContent.full_markdown,
                 metadata: blogContent.metadata,
-                status: "published",
+                status: "draft",
                 cover_image: blogContent.metadata.cover_image
             });
             alert("Blog saved to hub!");
@@ -270,7 +270,9 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                                 </div>
 
                                 <div className="blog-markdown-container">
-                                    <ReactMarkdown>{blogContent.full_markdown}</ReactMarkdown>
+                                    <ReactMarkdown>
+                                        {blogContent.full_markdown.replace(/^\s*#\s+.+?(\n|$)/, '')}
+                                    </ReactMarkdown>
                                 </div>
 
                                 <div className="bg-gradient-to-br from-card via-card/50 to-transparent rounded-[2.5rem] p-12 border border-card-border space-y-10 shadow-inner relative overflow-hidden group">
