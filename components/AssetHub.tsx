@@ -16,7 +16,7 @@ import {
     X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SavedImage, SavedBlog, fetchSavedImages, fetchSavedBlogs } from "@/services/api";
+import { SavedImage, SavedBlog, fetchSavedImages, fetchSavedBlogs, deleteSavedImage, deleteSavedBlog } from "@/services/api";
 import ReactMarkdown from "react-markdown";
 
 interface AssetHubProps {
@@ -37,6 +37,40 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
     useEffect(() => {
         loadAssets();
     }, [userId, brandId]);
+
+    const handleDeleteImage = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm("Are you sure you want to delete this image?")) return;
+        
+        // Optimistic update
+        setImages(prev => prev.filter(img => img.id !== id));
+        
+        try {
+            await deleteSavedImage(id);
+        } catch (error) {
+            console.error("Failed to delete image:", error);
+            // Revert on failure (reload assets)
+            loadAssets();
+            alert("Failed to delete image");
+        }
+    };
+
+    const handleDeleteBlog = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm("Are you sure you want to delete this blog?")) return;
+
+        // Optimistic update
+        setBlogs(prev => prev.filter(blog => blog.id !== id));
+
+        try {
+            await deleteSavedBlog(id);
+        } catch (error) {
+            console.error("Failed to delete blog:", error);
+            // Revert on failure
+            loadAssets();
+            alert("Failed to delete blog");
+        }
+    };
 
     const loadAssets = async () => {
         setIsLoading(true);
@@ -138,7 +172,7 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                 /* Gallery View */
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 overflow-y-auto pr-2 custom-scrollbar">
                     {filteredImages.length > 0 ? filteredImages.map((img) => (
-                        <div key={img.id} className="group glass-card overflow-hidden flex flex-col animate-in zoom-in-95 duration-500">
+                        <div key={img.id} className="group glass-card overflow-hidden flex flex-col animate-in zoom-in-95 duration-500 cursor-pointer" onClick={() => window.open(img.image_url, '_blank')}>
                             <div className="relative aspect-square overflow-hidden bg-white/5">
                                 <img 
                                     src={img.image_url} 
@@ -147,11 +181,15 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
                                     <div className="flex gap-2">
-                                        <button className="flex-1 bg-background/80 backdrop-blur-md border border-card-border rounded-lg py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-background transition-all flex items-center justify-center gap-2 text-foreground">
+                                        <a href={img.image_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 bg-background/80 backdrop-blur-md border border-card-border rounded-lg py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-background transition-all flex items-center justify-center gap-2 text-foreground">
                                             <ExternalLink className="w-3 h-3" />
                                             Open
-                                        </button>
-                                        <button className="bg-red-500/20 backdrop-blur-md border border-red-500/30 rounded-lg p-2 hover:bg-red-500/40 transition-all">
+                                        </a>
+                                        <button 
+                                            onClick={(e) => handleDeleteImage(img.id, e)}
+                                            className="bg-red-500/20 backdrop-blur-md border border-red-500/30 rounded-lg p-2 hover:bg-red-500/40 transition-all"
+                                            title="Delete Image"
+                                        >
                                             <Trash2 className="w-3 h-3 text-red-400" />
                                         </button>
                                     </div>
@@ -206,6 +244,13 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                                 <span className="text-[10px] text-foreground/30 font-mono">
                                     {new Date(blog.created_at).toLocaleDateString()}
                                 </span>
+                                <button
+                                    onClick={(e) => handleDeleteBlog(blog.id, e)}
+                                    className="p-1.5 hover:bg-red-500/10 rounded-md group/delete transition-colors"
+                                    title="Delete Blog"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5 text-foreground/20 group-hover/delete:text-red-400 transition-colors" />
+                                </button>
                             </div>
                         </button>
                     )) : (

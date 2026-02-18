@@ -316,6 +316,32 @@ export interface ApiKey {
   key: string;
   name: string;
   created_at: string;
+  last_used_at: string | null;
+  is_active: boolean;
+}
+
+export async function deleteSavedImage(imageId: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/assets/images/${imageId}`,
+    {
+      method: "DELETE",
+      headers,
+    },
+  );
+  if (!response.ok) throw new Error("Failed to delete image");
+}
+
+export async function deleteSavedBlog(blogId: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/assets/blogs/${blogId}`,
+    {
+      method: "DELETE",
+      headers,
+    },
+  );
+  if (!response.ok) throw new Error("Failed to delete blog");
 }
 
 export async function fetchApiKeys(brandId: string): Promise<ApiKey[]> {

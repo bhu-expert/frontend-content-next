@@ -167,7 +167,8 @@ export default function DashboardPage() {
           </div>
         ) : (
           <>
-            {/* Header */}
+            {/* Header — only on strategy tab */}
+            {activeTab === "strategy" && (
             <header className="flex justify-between items-end mb-10 animate-in slide-in-from-top-4 duration-700">
               <div>
                 <div className="flex items-center gap-2 mb-2">
@@ -183,33 +184,8 @@ export default function DashboardPage() {
                   Orchestrating brand narrative and visual assets through multi-agent collaboration.
                 </p>
               </div>
-
-              <div className="flex items-center gap-4">
-                <div className="relative group/input">
-                  <input
-                    type="text"
-                    value={directInput}
-                    onChange={(e) => setDirectInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleDirectInject()}
-                    placeholder="TYPE YOUR POST IDEA HERE..."
-                    className="bg-card border border-card-border rounded-xl px-4 py-2.5 text-xs font-mono w-[350px] focus:outline-none focus:border-accent-primary/60 focus:shadow-[0_0_15px_var(--accent-primary)] transition-all placeholder:text-foreground/30 text-foreground"
-                  />
-                  <button
-                    onClick={handleDirectInject}
-                    disabled={!directInput}
-                    className="absolute right-3 top-2 p-1 text-foreground/40 hover:text-accent-primary transition-colors disabled:opacity-0"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                  </button>
-                </div>
-                <button
-                  onClick={() => handleIdeate()}
-                  className="glass-button flex items-center gap-2 text-sm font-bold bg-accent-primary/10 border-accent-primary/20 text-accent-primary hover:bg-accent-primary/20"
-                >
-                  <Waves className="w-4 h-4" /> REFRESH IDEAS
-                </button>
-              </div>
             </header>
+            )}
 
             {/* Error Callout */}
             {error && (
@@ -253,7 +229,35 @@ export default function DashboardPage() {
             ) : activeTab === "integrations" ? (
               <IntegrationsSection brandId={activeBrand.id} />
             ) : (
-              <div className="flex gap-8 flex-1">
+              <div className="flex flex-col gap-6 flex-1">
+                {/* Input Bar */}
+                <div className="flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                  <div className="relative group/input flex-1">
+                    <input
+                      type="text"
+                      value={directInput}
+                      onChange={(e) => setDirectInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleDirectInject()}
+                      placeholder="TYPE YOUR POST IDEA HERE..."
+                      className="w-full bg-card border border-card-border rounded-xl px-4 py-3 text-xs font-mono focus:outline-none focus:border-accent-primary/60 focus:shadow-[0_0_15px_var(--accent-primary)] transition-all placeholder:text-foreground/30 text-foreground"
+                    />
+                    <button
+                      onClick={handleDirectInject}
+                      disabled={!directInput}
+                      className="absolute right-3 top-2.5 p-1 text-foreground/40 hover:text-accent-primary transition-colors disabled:opacity-0"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => handleIdeate()}
+                    className="glass-button flex items-center gap-2 text-sm font-bold bg-accent-primary/10 border-accent-primary/20 text-accent-primary hover:bg-accent-primary/20 shrink-0"
+                  >
+                    <Waves className="w-4 h-4" /> REFRESH IDEAS
+                  </button>
+                </div>
+
+                <div className="flex gap-8 flex-1">
                 {/* Left Column: Ideation */}
                 <div className="w-[45%] flex flex-col gap-6">
                   <div className="flex items-center justify-between">
@@ -288,6 +292,7 @@ export default function DashboardPage() {
                     }
                   }}
                 />
+              </div>
               </div>
             )}
 

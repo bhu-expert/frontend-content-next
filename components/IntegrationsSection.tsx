@@ -13,14 +13,78 @@ import {
   Globe,
   Blocks,
   Loader2,
+  X
 } from "lucide-react";
-import { fetchApiKeys, generateApiKey, type ApiKey } from "@/services/api";
+import { fetchApiKeys, generateApiKey, API_BASE_URL, type ApiKey } from "@/services/api";
 
 interface IntegrationsSectionProps {
   brandId: string;
 }
 
 type SnippetTab = "wordpress" | "html" | "react";
+
+/** Code editor-style block with filename header, line numbers, and copy button */
+const CodeBlock = ({
+  filename,
+  code,
+  language,
+  onCopy,
+  isCopied,
+}: {
+  filename: string;
+  code: string;
+  language: string;
+  onCopy: () => void;
+  isCopied: boolean;
+}) => {
+  const lines = code.split("\n");
+  return (
+    <div className="rounded-xl border border-card-border overflow-hidden">
+      {/* Editor Title Bar */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-[#1e1e2e] border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-red-500/70" />
+            <span className="w-3 h-3 rounded-full bg-yellow-500/70" />
+            <span className="w-3 h-3 rounded-full bg-green-500/70" />
+          </div>
+          <span className="text-[11px] font-mono text-white/40 ml-2">{filename}</span>
+        </div>
+        <button
+          onClick={onCopy}
+          className="flex items-center gap-1.5 text-[11px] font-mono text-white/30 hover:text-white/70 transition-colors px-2 py-1 rounded hover:bg-white/5"
+        >
+          {isCopied ? (
+            <>
+              <Check className="w-3 h-3 text-green-400" /> Copied
+            </>
+          ) : (
+            <>
+              <Copy className="w-3 h-3" /> Copy
+            </>
+          )}
+        </button>
+      </div>
+      {/* Editor Body */}
+      <div className="bg-[#11111b] overflow-x-auto">
+        <table className="w-full">
+          <tbody>
+            {lines.map((line, i) => (
+              <tr key={i} className="hover:bg-white/[0.02]">
+                <td className="px-4 py-0 text-right select-none text-[11px] font-mono text-white/15 w-[1%] whitespace-nowrap align-top leading-[1.7]">
+                  {i + 1}
+                </td>
+                <td className="px-4 py-0 text-[12px] font-mono text-[#cdd6f4] whitespace-pre leading-[1.7]">
+                  {line || " "}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
 
 export const IntegrationsSection = ({ brandId }: IntegrationsSectionProps) => {
   const [apiKey, setApiKey] = useState<ApiKey | null>(null);
@@ -30,7 +94,7 @@ export const IntegrationsSection = ({ brandId }: IntegrationsSectionProps) => {
   const [copied, setCopied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showRollWarning, setShowRollWarning] = useState(false);
-  const [activeSnippet, setActiveSnippet] = useState<SnippetTab>("html");
+  const [activeSnippet, setActiveSnippet] = useState<SnippetTab | null>(null);
 
   const loadKeys = useCallback(async () => {
     setIsLoading(true);
@@ -80,21 +144,27 @@ export const IntegrationsSection = ({ brandId }: IntegrationsSectionProps) => {
 
   const displayKey = apiKey ? (showKey ? apiKey.key : maskedKey) : "";
 
-  const htmlSnippet = `<div id="content-agent-feed" data-api-key="${apiKey?.key || "YOUR_API_KEY"}"></div>
-<script src="${process.env.NEXT_PUBLIC_API_URL}/integrations/html-embed/embed.js"></script>`;
+  const userKey = apiKey?.key || "YOUR_API_KEY";
+
+  const htmlSnippet = `<div id="content-agent-feed" data-api-key="${userKey}"></div>
+<script src="${API_BASE_URL}/integrations/html-embed/embed.js"></script>`;
 
   const reactSnippet = `// hooks/useContentAgent.ts
 // Copy this hook into your project
 
 import { useState, useEffect } from "react";
 
-const API_URL = "${process.env.NEXT_PUBLIC_API_URL}/api/v1/public/blogs";
+const API_URL = "${API_BASE_URL}/api/v1/public/blogs";
 
 interface Blog {
   title: string;
   slug: string;
   full_markdown: string;
-  metadata: { meta_title: string; meta_description: string; keywords: string[] };
+  metadata: {
+    meta_title: string;
+    meta_description: string;
+    keywords: string[];
+  };
 }
 
 export function useContentAgent(apiKey: string) {
@@ -119,27 +189,30 @@ export function useContentAgent(apiKey: string) {
 }
 
 // --- Usage in a component ---
-// import { useContentAgent } from "./hooks/useContentAgent";
-//
-// const BlogFeed = () => {
-//   const { blogs, loading, error } = useContentAgent("${apiKey?.key || "YOUR_API_KEY"}");
-//   if (loading) return <p>Loading...</p>;
-//   if (error) return <p>Error: {error}</p>;
-//   return (
-//     <div>
-//       {blogs.map(blog => (
-//         <article key={blog.slug}>
-//           <h2>{blog.title}</h2>
-//         </article>
-//       ))}
-//     </div>
-//   );
-// };`;
+
+import { useContentAgent } from "./hooks/useContentAgent";
+
+const BlogFeed = () => {
+  const { blogs, loading, error } = useContentAgent("${userKey}");
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
+
+  return (
+    <div>
+      {blogs.map(blog => (
+        <article key={blog.slug}>
+          <h2>{blog.title}</h2>
+        </article>
+      ))}
+    </div>
+  );
+};`;
 
   const wordpressInstructions = `1. Download the Content Agent WordPress plugin.
 2. Go to WordPress Admin → Plugins → Add New → Upload Plugin.
 3. Activate the plugin and navigate to Settings → Content Agent.
-4. Paste your API Key: ${apiKey?.key || "YOUR_API_KEY"}
+4. Paste your API Key: ${userKey}
 5. Configure display options and save.`;
 
   const SNIPPET_TABS: { id: SnippetTab; label: string; icon: React.ElementType }[] = [
@@ -276,100 +349,65 @@ export function useContentAgent(apiKey: string) {
         )}
       </div>
 
-      {/* Integration Instructions Card */}
+      {/* Integration Snippets Section */}
       <div className="glass-card p-6 space-y-5">
         <h3 className="text-lg font-bold flex items-center gap-2">
           <Blocks className="w-5 h-5 text-accent-secondary" />
           Integration Snippets
         </h3>
 
-        {/* Snippet Tabs */}
-        <div className="flex gap-1 bg-background/50 border border-card-border rounded-xl p-1">
-          {SNIPPET_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveSnippet(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold tracking-wide transition-all duration-300 ${
-                activeSnippet === tab.id
-                  ? "bg-accent-primary/10 text-accent-primary shadow-[0_0_15px_var(--accent-glow)]"
-                  : "text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5"
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Snippet Content */}
-        <div className="relative">
-          {activeSnippet === "html" && (
-            <div className="space-y-3 animate-in fade-in duration-300">
-              <p className="text-sm text-foreground/50 leading-relaxed">
-                Paste this snippet into your website&apos;s <code className="text-accent-primary bg-accent-primary/10 px-1.5 py-0.5 rounded text-xs">&lt;body&gt;</code> tag to display your published blog feed.
-              </p>
-              <div className="relative group">
-                <pre className="bg-background border border-card-border rounded-xl p-4 text-xs font-mono text-foreground/70 overflow-x-auto leading-relaxed">
-                  <code>{htmlSnippet}</code>
-                </pre>
-                <button
-                  onClick={() => copyToClipboard(htmlSnippet, "html")}
-                  className="absolute top-3 right-3 p-2 rounded-lg bg-card border border-card-border text-foreground/40 hover:text-accent-primary hover:border-accent-primary/30 transition-all opacity-0 group-hover:opacity-100"
-                >
-                  {copied === "html" ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
+        {/* Snippet Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* HTML / JS Embed Card */}
+          <button
+            onClick={() => setActiveSnippet("html")}
+            className="group text-left glass-card p-5 space-y-3 hover:border-accent-primary/30 hover:shadow-[0_0_20px_var(--accent-glow)] transition-all duration-300 cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+              <Globe className="w-5 h-5 text-orange-400" />
             </div>
-          )}
+            <h4 className="font-bold text-sm text-foreground">HTML / JS Embed</h4>
+            <p className="text-xs text-foreground/40 leading-relaxed">
+              Copy &amp; paste a snippet into any website&apos;s body tag.
+            </p>
+            <span className="text-[10px] font-mono text-accent-primary tracking-widest uppercase group-hover:tracking-[0.3em] transition-all">
+              VIEW CODE →
+            </span>
+          </button>
 
-          {activeSnippet === "react" && (
-            <div className="space-y-3 animate-in fade-in duration-300">
-              <p className="text-sm text-foreground/50 leading-relaxed">
-                Use the <code className="text-accent-primary bg-accent-primary/10 px-1.5 py-0.5 rounded text-xs">useContentAgent</code> hook in your React or Next.js application.
-              </p>
-              <div className="relative group">
-                <pre className="bg-background border border-card-border rounded-xl p-4 text-xs font-mono text-foreground/70 overflow-x-auto leading-relaxed">
-                  <code>{reactSnippet}</code>
-                </pre>
-                <button
-                  onClick={() => copyToClipboard(reactSnippet, "react")}
-                  className="absolute top-3 right-3 p-2 rounded-lg bg-card border border-card-border text-foreground/40 hover:text-accent-primary hover:border-accent-primary/30 transition-all opacity-0 group-hover:opacity-100"
-                >
-                  {copied === "react" ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
+          {/* React / Next.js Card */}
+          <button
+            onClick={() => setActiveSnippet("react")}
+            className="group text-left glass-card p-5 space-y-3 hover:border-accent-primary/30 hover:shadow-[0_0_20px_var(--accent-glow)] transition-all duration-300 cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+              <Blocks className="w-5 h-5 text-cyan-400" />
             </div>
-          )}
+            <h4 className="font-bold text-sm text-foreground">React / Next.js</h4>
+            <p className="text-xs text-foreground/40 leading-relaxed">
+              A ready-to-use hook you can drop into any React project.
+            </p>
+            <span className="text-[10px] font-mono text-accent-primary tracking-widest uppercase group-hover:tracking-[0.3em] transition-all">
+              VIEW CODE →
+            </span>
+          </button>
 
-          {activeSnippet === "wordpress" && (
-            <div className="space-y-4 animate-in fade-in duration-300">
-              <p className="text-sm text-foreground/50 leading-relaxed">
-                Install the Content Agent WordPress plugin and enter your API key in the settings.
-              </p>
-
-              {/* Download Plugin Button */}
-              <a
-                href={`${process.env.NEXT_PUBLIC_API_URL}/api/v1/public/download/wordpress-plugin`}
-                download
-                className="glass-button inline-flex items-center gap-2 text-sm font-bold bg-accent-primary/10 border-accent-primary/20 text-accent-primary hover:bg-accent-primary/20 hover:shadow-[0_0_15px_var(--accent-glow)] px-5 py-3 transition-all"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Download WordPress Plugin
-              </a>
-
-              <div className="relative group">
-                <pre className="bg-background border border-card-border rounded-xl p-4 text-xs font-mono text-foreground/70 overflow-x-auto leading-relaxed whitespace-pre-wrap">
-                  <code>{wordpressInstructions}</code>
-                </pre>
-                <button
-                  onClick={() => copyToClipboard(wordpressInstructions, "wordpress")}
-                  className="absolute top-3 right-3 p-2 rounded-lg bg-card border border-card-border text-foreground/40 hover:text-accent-primary hover:border-accent-primary/30 transition-all opacity-0 group-hover:opacity-100"
-                >
-                  {copied === "wordpress" ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
+          {/* WordPress Card */}
+          <button
+            onClick={() => setActiveSnippet("wordpress")}
+            className="group text-left glass-card p-5 space-y-3 hover:border-accent-primary/30 hover:shadow-[0_0_20px_var(--accent-glow)] transition-all duration-300 cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+              <Code2 className="w-5 h-5 text-blue-400" />
             </div>
-          )}
+            <h4 className="font-bold text-sm text-foreground">WordPress</h4>
+            <p className="text-xs text-foreground/40 leading-relaxed">
+              Download the plugin and configure it with your API key.
+            </p>
+            <span className="text-[10px] font-mono text-accent-primary tracking-widest uppercase group-hover:tracking-[0.3em] transition-all">
+              VIEW SETUP →
+            </span>
+          </button>
         </div>
 
         {!apiKey && (
@@ -378,6 +416,100 @@ export function useContentAgent(apiKey: string) {
           </p>
         )}
       </div>
+
+      {/* Snippet Modal */}
+      {activeSnippet && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 animate-in fade-in duration-200"
+          onClick={() => setActiveSnippet(null)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+          {/* Modal Content */}
+          <div
+            className="relative w-full max-w-3xl max-h-[85vh] flex flex-col bg-[#181825] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+              <div className="flex items-center gap-3">
+                {activeSnippet === "html" && <Globe className="w-5 h-5 text-orange-400" />}
+                {activeSnippet === "react" && <Blocks className="w-5 h-5 text-cyan-400" />}
+                {activeSnippet === "wordpress" && <Code2 className="w-5 h-5 text-blue-400" />}
+                <h3 className="font-bold text-white text-sm">
+                  {activeSnippet === "html" && "HTML / JS Embed"}
+                  {activeSnippet === "react" && "React / Next.js Hook"}
+                  {activeSnippet === "wordpress" && "WordPress Plugin Setup"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setActiveSnippet(null)}
+                className="text-white/30 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto p-6 space-y-4">
+              {activeSnippet === "html" && (
+                <>
+                  <p className="text-sm text-white/50 leading-relaxed">
+                    Paste this snippet into your website&apos;s <code className="text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded text-xs">&lt;body&gt;</code> tag to display your published blog feed.
+                  </p>
+                  <CodeBlock
+                    filename="index.html"
+                    language="html"
+                    code={htmlSnippet}
+                    onCopy={() => copyToClipboard(htmlSnippet, "html")}
+                    isCopied={copied === "html"}
+                  />
+                </>
+              )}
+
+              {activeSnippet === "react" && (
+                <>
+                  <p className="text-sm text-white/50 leading-relaxed">
+                    Copy this <code className="text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded text-xs">useContentAgent</code> hook into your project and use it in any component.
+                  </p>
+                  <CodeBlock
+                    filename="hooks/useContentAgent.ts"
+                    language="typescript"
+                    code={reactSnippet}
+                    onCopy={() => copyToClipboard(reactSnippet, "react")}
+                    isCopied={copied === "react"}
+                  />
+                </>
+              )}
+
+              {activeSnippet === "wordpress" && (
+                <>
+                  <p className="text-sm text-white/50 leading-relaxed">
+                    Download the plugin, install it on your WordPress site, and configure with your API key.
+                  </p>
+                  <a
+                    href={`${API_BASE_URL}/api/v1/public/download/wordpress-plugin`}
+                    download
+                    className="inline-flex items-center gap-2 text-sm font-bold bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 px-5 py-3 rounded-xl transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download WordPress Plugin
+                  </a>
+                  <CodeBlock
+                    filename="setup-instructions.txt"
+                    language="text"
+                    code={wordpressInstructions}
+                    onCopy={() => copyToClipboard(wordpressInstructions, "wordpress")}
+                    isCopied={copied === "wordpress"}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
