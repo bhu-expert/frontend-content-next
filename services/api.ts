@@ -72,9 +72,13 @@ export interface SavedBlog {
   metadata: {
     meta_title: string;
     meta_description: string;
-    slug: string;
     keywords: string[];
+    slug: string;
+    cover_image?: string;
   };
+  cover_image?: string;
+  status: "draft" | "scheduled" | "published";
+  scheduled_at?: string;
   created_at: string;
 }
 
@@ -84,6 +88,8 @@ export interface SaveBlogRequest {
   title: string;
   full_markdown: string;
   metadata: any;
+  status?: "draft" | "scheduled" | "published";
+  scheduled_at?: string;
 }
 
 // Blog Interfaces

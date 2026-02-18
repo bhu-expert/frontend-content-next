@@ -10,6 +10,7 @@ import { BlogSection } from "@/components/BlogSection";
 import { AssetHub } from "@/components/AssetHub";
 import { CampaignSection } from "@/components/CampaignSection";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
+import { CalendarSection } from "@/components/CalendarSection";
 import { Sparkles, BrainCircuit, Waves, Palette } from "lucide-react";
 import { fetchIdeate, fetchVisualAsset, fetchUserBrands, submitFeedback, createBrand, type PostIdea, type Brand } from "@/services/api";
 import { createClient } from "@/lib/supabase/client";
@@ -26,7 +27,7 @@ export default function DashboardPage() {
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
   const [genStatus, setGenStatus] = useState<string>("");
   const [currentPrompt, setCurrentPrompt] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"strategy" | "brand" | "blog" | "hub" | "campaign" | "integrations">("strategy");
+  const [activeTab, setActiveTab] = useState<"strategy" | "brand" | "blog" | "hub" | "campaign" | "integrations" | "calendar">("strategy");
   const [assetHubInitialView, setAssetHubInitialView] = useState<"gallery" | "editorial">("gallery");
   const [directInput, setDirectInput] = useState("");
   const [isIdeaModalOpen, setIsIdeaModalOpen] = useState(false);
@@ -228,6 +229,8 @@ export default function DashboardPage() {
               <AssetHub userId={user.id} brandId={activeBrand.id} initialView={assetHubInitialView} />
             ) : activeTab === "integrations" ? (
               <IntegrationsSection brandId={activeBrand.id} />
+            ) : activeTab === "calendar" ? (
+              <CalendarSection userId={user.id} brandId={activeBrand.id} />
             ) : (
               <div className="flex flex-col gap-6 flex-1">
                 {/* Input Bar */}

@@ -153,73 +153,113 @@ export const IntegrationsSection = ({ brandId }: IntegrationsSectionProps) => {
 // Copy this hook into your project
 
 import { useState, useEffect } from "react";
+import ReactMarkdown from 'react-markdown';
 
 const API_URL = "${API_BASE_URL}/api/v1/public";
 
-interface Blog {
-  id: string;
-  title: string;
-  full_markdown: string;
-  metadata: any;
-  created_at: string;
-  slug: string; // Helper for routing
+export interface Blog {
+    id: string;
+    title: string;
+    description?: string;
+    full_markdown: string;
+    metadata: any;
+    created_at: string;
+    cover_image?: string;
+    slug?: string;
 }
 
+/**
+ * Hook to fetch blogs from Content Agent API
+ * @param apiKey Your Brand API Key
+ * @param slug Optional: Fetch a single blog by slug
+ */
 export function useContentAgent(apiKey: string, slug?: string) {
-  const [blogs, setBlogs] = useState<Blog[]>([]);
-  const [blog, setBlog] = useState<Blog | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+    const [blogs, setBlogs] = useState<Blog[]>([]);
+    const [blog, setBlog] = useState<Blog | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!apiKey) return;
+    useEffect(() => {
+        if (!apiKey) return;
 
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
+        async function fetchData() {
+            try {
+                setLoading(true);
+                setError(null);
 
-        if (slug) {
-          // Fetch single blog
-          const response = await fetch(\`\${API_URL}/blogs/\${slug}\`, {
-            headers: { "X-Content-Agent-Key": apiKey },
-          });
+                if (slug) {
+                    // Fetch single blog
+                    const response = await fetch(\`\${API_URL}/blogs/\${slug}\`, {
+                        headers: { "X-Content-Agent-Key": apiKey },
+                    });
 
-          if (!response.ok)
-            throw new Error(\`Failed to fetch blog: \${response.status}\`);
+                    if (!response.ok)
+                        throw new Error(\`Failed to fetch blog: \${response.status}\`);
 
-          const data = await response.json();
-          setBlog(data);
-        } else {
-          // Fetch list
-          const response = await fetch(\`\${API_URL}/blogs\`, {
-            headers: { "X-Content-Agent-Key": apiKey },
-          });
+                    const data = await response.json();
+                    setBlog(data);
+                } else {
+                    // Fetch list
+                    const response = await fetch(\`\${API_URL}/blogs\`, {
+                        headers: { "X-Content-Agent-Key": apiKey },
+                    });
 
-          if (!response.ok)
-            throw new Error(\`Failed to fetch blogs: \${response.status}\`);
+                    if (!response.ok)
+                        throw new Error(\`Failed to fetch blogs: \${response.status}\`);
 
-          const data = await response.json();
-          setBlogs(data);
+                    const data = await response.json();
+                    setBlogs(data);
+                }
+            } catch (err: any) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
         }
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
 
-    fetchData();
-  }, [apiKey, slug]);
+        fetchData();
+    }, [apiKey, slug]);
 
-  return { blogs, blog, loading, error };
+    return { blogs, blog, loading, error };
 }
 
-// --- Usage in a component (List) ---
-// const { blogs } = useContentAgent("${userKey}");
-
-// --- Usage in a component (Single) ---
-// const { blog } = useContentAgent("${userKey}", "my-blog-slug");`;
+/**
+ * Component to render the blog content using React Markdown.
+ * Handles inline images automatically.
+ * 
+ * Usage:
+ * <ContentAgentBlog markdown={blog.full_markdown} />
+ */
+export function ContentAgentBlog({ markdown, className }: { markdown: string; className?: string }) {
+    return (
+        <article className={\`prose prose-lg max-w-none \${className || ''}\`}>
+            <ReactMarkdown
+                components={{
+                    // Customize Image Rendering
+                    img: (props) => (
+                        <img 
+                            {...props} 
+                            style={{ 
+                                maxWidth: '100%', 
+                                height: 'auto', 
+                                borderRadius: '8px', 
+                                margin: '2rem 0',
+                                display: 'block'
+                            }}
+                            className="ca-inline-image"
+                        />
+                    ),
+                    // Customize Link Rendering
+                    a: (props) => (
+                        <a {...props} className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer" />
+                    )
+                }}
+            >
+                {markdown}
+            </ReactMarkdown>
+        </article>
+    );
+}`;
 
   const wordpressInstructions = `1. Download the Content Agent WordPress plugin.
 2. Go to WordPress Admin → Plugins → Add New → Upload Plugin.

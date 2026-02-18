@@ -34,6 +34,7 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
   
   // State for Modal
   const [selectedItem, setSelectedItem] = useState<CampaignItem | null>(null);
+  const [scheduledDate, setScheduledDate] = useState<string>("");
 
   const addLog = (message: string) => {
     setLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev]);
@@ -115,7 +116,9 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                     brand_id: brandId,
                     title: blogContent.title,
                     full_markdown: blogContent.full_markdown,
-                    metadata: blogContent.metadata
+                    metadata: blogContent.metadata,
+                    status: scheduledDate ? "scheduled" : "published",
+                    scheduled_at: scheduledDate ? new Date(scheduledDate).toISOString() : undefined
                 });
                 
                 newItems[i] = { ...item, status: "completed", resultSlug: blogContent.metadata.slug };
@@ -311,28 +314,44 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs font-mono text-foreground/50 uppercase block mb-2">Blog Posts</label>
-                        <input 
-                            type="number" 
-                            min="0"
-                            max="20"
-                            value={blogCount}
-                            onChange={(e) => setBlogCount(parseInt(e.target.value) || 0)}
-                            className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm text-foreground focus:border-accent-primary focus:outline-none"
-                        />
+                        <div>
+                            <label className="text-xs font-mono text-foreground/50 uppercase block mb-2">Blog Posts</label>
+                            <input 
+                                type="number" 
+                                min="0"
+                                max="20"
+                                value={blogCount}
+                                onChange={(e) => setBlogCount(parseInt(e.target.value) || 0)}
+                                className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm text-foreground focus:border-accent-primary focus:outline-none"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-mono text-foreground/50 uppercase block mb-2">Visual Assets</label>
+                            <input 
+                                type="number" 
+                                min="0"
+                                max="20"
+                                value={imageCount}
+                                onChange={(e) => setImageCount(parseInt(e.target.value) || 0)}
+                                className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm text-foreground focus:border-accent-primary focus:outline-none"
+                            />
+                        </div>
                     </div>
-                    <div>
-                        <label className="text-xs font-mono text-foreground/50 uppercase block mb-2">Visual Assets</label>
+
+                    <div className="pt-4 border-t border-card-border">
+                        <label className="text-xs font-mono text-foreground/50 uppercase block mb-2 flex items-center justify-between">
+                            <span>Schedule Publication</span>
+                            {scheduledDate && <span className="text-accent-primary">Scheduled</span>}
+                        </label>
                         <input 
-                            type="number" 
-                            min="0"
-                            max="20"
-                            value={imageCount}
-                            onChange={(e) => setImageCount(parseInt(e.target.value) || 0)}
-                            className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm text-foreground focus:border-accent-primary focus:outline-none"
+                            type="datetime-local"
+                            value={scheduledDate}
+                            onChange={(e) => setScheduledDate(e.target.value)}
+                            className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm text-foreground focus:border-accent-primary focus:outline-none placeholder:text-foreground/30"
                         />
-                    </div>
+                        <p className="text-[10px] text-foreground/40 mt-1.5">
+                            Leave blank to publish immediately. Set a time to schedule.
+                        </p>
                     </div>
                 </div>
 

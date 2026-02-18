@@ -224,9 +224,20 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                                 <ExternalLink className="w-4 h-4 text-foreground/40" />
                             </div>
                             
-                            <div className="w-10 h-10 rounded-full bg-accent-secondary/10 flex items-center justify-center mb-2">
-                                <FileText className="w-5 h-5 text-accent-secondary" />
-                            </div>
+                            {(blog.cover_image || blog.metadata?.cover_image) ? (
+                                <div className="w-full h-32 mb-4 rounded-lg overflow-hidden relative">
+                                    <img 
+                                        src={blog.cover_image || blog.metadata?.cover_image} 
+                                        alt={blog.title}
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                    <div className="absolute inset-0 bg-accent-secondary/10 group-hover:bg-transparent transition-colors" />
+                                </div>
+                            ) : (
+                                <div className="w-10 h-10 rounded-full bg-accent-secondary/10 flex items-center justify-center mb-2">
+                                    <FileText className="w-5 h-5 text-accent-secondary" />
+                                </div>
+                            )}
 
                             <div>
                                 <h3 className="font-bold text-lg leading-snug mb-2 text-foreground group-hover:text-accent-secondary transition-colors line-clamp-2">
@@ -316,6 +327,17 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                         {/* Modal Body */}
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-8 bg-background/50">
                             <div className={cn("mx-auto transition-all", isFullScreen ? "max-w-5xl" : "max-w-3xl")}>
+                                {selectedBlog.cover_image || selectedBlog.metadata?.cover_image ? (
+                                    <div className="mb-8 rounded-xl overflow-hidden w-full h-[300px] relative">
+                                        <img 
+                                            src={selectedBlog.cover_image || selectedBlog.metadata?.cover_image} 
+                                            alt={selectedBlog.title}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-50" />
+                                    </div>
+                                ) : null}
+
                                 <h1 className="text-4xl md:text-5xl font-extrabold mb-8 text-foreground tracking-tight leading-tight">
                                     {selectedBlog.title}
                                 </h1>
@@ -332,7 +354,19 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                                 </div>
 
                                 <div className="prose prose-invert prose-lg max-w-none text-foreground/80 leading-relaxed react-markdown-container">
-                                    <ReactMarkdown>
+                                    <ReactMarkdown
+                                        components={{
+                                            img: (props) => (
+                                                <img 
+                                                    {...props} 
+                                                    className="w-full h-auto rounded-lg my-8 border border-white/5 shadow-2xl"
+                                                />
+                                            ),
+                                            a: (props) => (
+                                                <a {...props} className="text-accent-primary hover:underline hover:text-accent-secondary transition-colors" target="_blank" rel="noopener noreferrer" />
+                                            )
+                                        }}
+                                    >
                                         {selectedBlog.full_markdown.replace(/^#\s+.+\n/, '')} 
                                     </ReactMarkdown>
                                 </div>
@@ -366,6 +400,7 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                 .react-markdown-container li::before { content: '→'; position: absolute; left: 0; color: var(--accent-secondary); font-weight: bold; }
                 .react-markdown-container strong { color: var(--foreground); font-weight: 800; }
                 .react-markdown-container blockquote { border-left: 4px solid var(--accent-secondary); padding: 2rem; font-style: italic; margin: 3rem 0; background: var(--card); border-radius: 0 1.5rem 1.5rem 0; color: var(--foreground); opacity: 0.9; }
+                .react-markdown-container img { margin-top: 2rem; margin-bottom: 2rem; }
             `}</style>
         </div>
     );

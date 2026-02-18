@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { LayoutDashboard, Megaphone, Palette, Bot, LineChart, Settings, LogOut, User, BookOpen, Library, Sun, Moon, Code2 } from "lucide-react";
+import { LayoutDashboard, Megaphone, Palette, Bot, LineChart, Settings, LogOut, User, BookOpen, Library, Sun, Moon, Code2, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -14,12 +14,13 @@ const NAV_ITEMS = [
   { icon: Palette, label: "Brand Identity", id: "brand" },
   { icon: Megaphone, label: "Campaign", id: "campaign" },
   { icon: Library, label: "Asset Hub", id: "hub" },
+  { icon: Calendar, label: "Schedule", id: "calendar" },
   { icon: Code2, label: "Integrations", id: "integrations" },
 ];
 
 interface SidebarProps {
   activeId: string;
-  onSelect: (id: "strategy" | "brand" | "blog" | "hub" | "campaign" | "integrations") => void;
+  onSelect: (id: "strategy" | "brand" | "blog" | "hub" | "campaign" | "integrations" | "calendar") => void;
 }
 
 export const Sidebar = ({ activeId, onSelect }: SidebarProps) => {
@@ -52,7 +53,7 @@ export const Sidebar = ({ activeId, onSelect }: SidebarProps) => {
         {NAV_ITEMS.map((item) => (
           <button
             key={item.id}
-            onClick={() => onSelect(item.id as "strategy" | "brand" | "blog" | "hub" | "campaign" | "integrations")}
+            onClick={() => onSelect(item.id as "strategy" | "brand" | "blog" | "hub" | "campaign" | "integrations" | "calendar")}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
               activeId === item.id 
