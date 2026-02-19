@@ -124,12 +124,6 @@ export default function AuthPage() {
             </button>
           </form>
 
-          <div className="relative my-8 text-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/5"></div>
-            </div>
-            <span className="relative px-4 text-[10px] font-mono text-white/20 bg-[#0A0A0B] tracking-widest">OR CONTINUE WITH</span>
-          </div>
 
 
         </div>

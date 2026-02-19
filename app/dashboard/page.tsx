@@ -12,7 +12,7 @@ import { CampaignSection } from "@/components/CampaignSection";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { CalendarSection } from "@/components/CalendarSection";
 import { Sparkles, BrainCircuit, Waves, Palette } from "lucide-react";
-import { fetchIdeate, fetchVisualAsset, fetchUserBrands, submitFeedback, createBrand, type PostIdea, type Brand } from "@/services/api";
+import { fetchIdeate, fetchVisualAsset, fetchUserBrands, submitFeedback, createBrand, saveImage, type PostIdea, type Brand } from "@/services/api";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -153,6 +153,24 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSaveAsset = async () => {
+    if (!user || !activeBrand || !generatedImage) return;
+
+    try {
+      await saveImage({
+        user_id: user.id,
+        brand_id: activeBrand.id,
+        image_url: generatedImage,
+        prompt: currentPrompt || "Generated from strategy",
+        variation_name: "Strategic Asset"
+      });
+      alert("Asset saved to hub!");
+    } catch (e: any) {
+      console.error("Save to Hub failed:", e);
+      alert("Failed to save asset. Please try again.");
+    }
+  };
+
   return (
     <div className="flex bg-background text-foreground min-h-screen font-sans selection:bg-accent-primary/30">
       <Sidebar activeId={activeTab} onSelect={setActiveTab} />
@@ -289,6 +307,7 @@ export default function DashboardPage() {
                   isLoading={isGenerating}
                   status={genStatus}
                   onRefresh={() => selectedIdeaIndex !== null && handleGenerateAsset(selectedIdeaIndex)}
+                  onSave={handleSaveAsset}
                   onFeedback={async (liked: boolean) => {
                     if (user && currentPrompt) {
                       try {

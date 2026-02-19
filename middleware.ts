@@ -23,8 +23,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth", request.url));
   }
 
-  // If unauthenticated user tries to access any other protected route (not /auth, not /), redirect to /auth
-  if (!user && !pathname.startsWith("/auth") && pathname !== "/") {
+  // If unauthenticated user tries to access any other protected route (not /auth, not /, not /blog), redirect to /auth
+  if (
+    !user &&
+    !pathname.startsWith("/auth") &&
+    !pathname.startsWith("/blog") &&
+    pathname !== "/"
+  ) {
     return NextResponse.redirect(new URL("/auth", request.url));
   }
 

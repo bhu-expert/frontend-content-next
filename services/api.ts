@@ -405,6 +405,22 @@ export async function deleteSavedBlog(blogId: string): Promise<void> {
   if (!response.ok) throw new Error("Failed to delete blog");
 }
 
+export async function fetchBlogBySlug(slug: string): Promise<SavedBlog | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/data/assets/blogs`, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+  if (!response.ok) return null;
+  const blogs: SavedBlog[] = await response.json();
+  return blogs.find((b) => b.metadata?.slug === slug) ?? null;
+}
+
 export async function updateBlog(
   blogId: string,
   data: {
