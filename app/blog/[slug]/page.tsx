@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 export default function BlogPostPage() {
   const params = useParams();
@@ -178,6 +179,15 @@ export default function BlogPostPage() {
             <ReactMarkdown>
               {blog.full_markdown.replace(/^\s*#\s+.+?(\n|$)/, "")}
             </ReactMarkdown>
+          </div>
+
+          <div className="mt-16 border-t border-card-border pt-10">
+            <FeedbackWidget
+              userId={blog.user_id}
+              brandId={blog.brand_id}
+              prompt={blog.title} // Using title as proxy for prompt context
+              className="max-w-2xl mx-auto"
+            />
           </div>
 
           {/* Footer Metadata Card */}
