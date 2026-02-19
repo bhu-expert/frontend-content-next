@@ -185,6 +185,7 @@ export async function fetchVisualAsset(
 
 export async function submitFeedback(
   userId: string,
+  brandId: string,
   prompt: string,
   liked: boolean,
   comment?: string,
@@ -195,6 +196,7 @@ export async function submitFeedback(
     headers,
     body: JSON.stringify({
       user_id: userId,
+      brand_id: brandId,
       prompt_used: prompt,
       liked,
       comment,

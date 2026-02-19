@@ -309,9 +309,9 @@ export default function DashboardPage() {
                   onRefresh={() => selectedIdeaIndex !== null && handleGenerateAsset(selectedIdeaIndex)}
                   onSave={handleSaveAsset}
                   onFeedback={async (liked: boolean) => {
-                    if (user && currentPrompt) {
+                    if (user && currentPrompt && activeBrand) {
                       try {
-                        await submitFeedback(user.id, currentPrompt, liked);
+                        await submitFeedback(user.id, activeBrand.id, currentPrompt, liked);
                       } catch (e) {
                         console.error("Feedback submission failed:", e);
                       }
