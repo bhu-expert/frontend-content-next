@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Palette, Target, Zap, Globe, MessageSquare, Save } from "lucide-react";
+import { Palette, Target, Zap, Globe, MessageSquare, Save, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Brand } from "@/services/api";
 
@@ -18,6 +18,7 @@ export const BrandIdentitySection = ({ brand, onSubmit }: BrandIdentitySectionPr
     visual_style: brand?.visual_style || "",
     tone_of_voice: brand?.tone_of_voice || "",
     manifest: brand?.manifest || "",
+    location: brand?.location || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -31,6 +32,7 @@ export const BrandIdentitySection = ({ brand, onSubmit }: BrandIdentitySectionPr
     { name: "target_audience", label: "Target Audience", icon: Target, placeholder: "e.g., Gen-Z Revolutionaries" },
     { name: "visual_style", label: "Visual Aesthetic", icon: Palette, placeholder: "e.g., Gritty, High-Contrast, Minimalist" },
     { name: "tone_of_voice", label: "Tone of Voice", icon: MessageSquare, placeholder: "e.g., Bold, Unapologetic, Direct" },
+    { name: "location", label: "Location", icon: MapPin, placeholder: "e.g., New York, NY" },
   ];
 
   return (

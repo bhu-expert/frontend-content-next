@@ -26,6 +26,7 @@ export interface Brand {
   visual_style: string;
   tone_of_voice: string;
   manifest: string;
+  location?: string;
 }
 
 export interface PostIdea {
@@ -232,6 +233,24 @@ export async function createBrand(
     body: JSON.stringify({ ...brandData, user_id: userId }),
   });
   if (!response.ok) throw new Error("Failed to create brand");
+  const data = await response.json();
+  return data.data;
+}
+
+export async function updateBrand(
+  brandId: string,
+  brandData: Partial<Omit<Brand, "id">>,
+): Promise<Brand> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/brands/${brandId}`,
+    {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(brandData),
+    },
+  );
+  if (!response.ok) throw new Error("Failed to update brand");
   const data = await response.json();
   return data.data;
 }
