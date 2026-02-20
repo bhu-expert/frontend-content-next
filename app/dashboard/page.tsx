@@ -12,7 +12,7 @@ import { CampaignSection } from "@/components/CampaignSection";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { CalendarSection } from "@/components/CalendarSection";
 import { Sparkles, BrainCircuit, Waves, Palette } from "lucide-react";
-import { fetchIdeate, fetchVisualAsset, fetchUserBrands, submitFeedback, createBrand, saveImage, type PostIdea, type Brand } from "@/services/api";
+import { fetchIdeate, fetchVisualAsset, fetchUserBrands, submitFeedback, createBrand, updateBrand, saveImage, type PostIdea, type Brand } from "@/services/api";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -124,11 +124,17 @@ export default function DashboardPage() {
   const handleCreateBrand = async (data: Omit<Brand, "id">) => {
     if (!user) return;
     try {
-      const newBrand = await createBrand(user.id, data);
-      setActiveBrand(newBrand);
-      setActiveTab("strategy");
+      if (activeBrand) {
+        const updatedBrand = await updateBrand(activeBrand.id, data);
+        setActiveBrand({ ...activeBrand, ...updatedBrand });
+        setActiveTab("strategy");
+      } else {
+        const newBrand = await createBrand(user.id, data);
+        setActiveBrand(newBrand);
+        setActiveTab("strategy");
+      }
     } catch (e: any) {
-      setError(`Failed to create brand: ${e.message}`);
+      setError(`Failed to save brand: ${e.message}`);
     }
   };
 
