@@ -80,6 +80,7 @@ export interface SavedBlog {
   cover_image?: string;
   status: "draft" | "scheduled" | "published";
   scheduled_at?: string;
+  published_at?: string;
   created_at: string;
 }
 
@@ -91,6 +92,7 @@ export interface SaveBlogRequest {
   metadata: any;
   status?: "draft" | "scheduled" | "published";
   scheduled_at?: string;
+  published_at?: string;
   cover_image?: string;
 }
 

@@ -130,7 +130,12 @@ export default function BlogPostPage() {
               </div>
               <div className="flex items-center gap-1.5 text-foreground/30 text-[11px] font-mono">
                 <Clock className="w-3 h-3" />
-                <span>{new Date(blog.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</span>
+                <span>
+                   {blog.status === 'published' && blog.published_at
+                      ? new Date(blog.published_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+                      : new Date(blog.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+                   }
+                </span>
               </div>
             </div>
 
