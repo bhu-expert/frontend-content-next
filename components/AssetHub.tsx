@@ -315,7 +315,11 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                                     {blog.status || 'Draft'}
                                 </span>
                                 <span className="text-[10px] text-foreground/30 font-mono">
-                                    {new Date(blog.created_at).toLocaleDateString()}
+                                    {blog.status === 'published' && blog.published_at 
+                                        ? new Date(blog.published_at).toLocaleDateString() 
+                                        : blog.status === 'scheduled' && blog.scheduled_at 
+                                        ? new Date(blog.scheduled_at).toLocaleDateString() 
+                                        : new Date(blog.created_at).toLocaleDateString()}
                                 </span>
                                 <button
                                     onClick={(e) => handleDeleteBlog(blog.id, e)}
@@ -494,7 +498,11 @@ export const AssetHub = ({ userId, brandId, initialView = "gallery" }: AssetHubP
                                         <div className="flex items-center gap-4 mb-10 text-xs font-mono text-foreground/40 border-b border-card-border pb-6">
                                             <span className="flex items-center gap-1.5">
                                                 <Clock className="w-3 h-3" />
-                                                {new Date(selectedBlog.created_at).toLocaleDateString()}
+                                                {selectedBlog.status === 'published' && selectedBlog.published_at 
+                                                    ? new Date(selectedBlog.published_at).toLocaleDateString() 
+                                                    : selectedBlog.status === 'scheduled' && selectedBlog.scheduled_at 
+                                                    ? new Date(selectedBlog.scheduled_at).toLocaleDateString() 
+                                                    : new Date(selectedBlog.created_at).toLocaleDateString()}
                                             </span>
                                             <span className={cn(
                                                 "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
