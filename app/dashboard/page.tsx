@@ -16,9 +16,10 @@ import {
   fetchIdeate,
   fetchVisualAsset,
   fetchUserBrands,
-  submitFeedback,
   createBrand,
+  updateBrand,
   saveImage,
+  submitFeedback,
   type PostIdea,
   type Brand,
 } from "@/services/api";
@@ -32,6 +33,7 @@ export default function DashboardPage() {
   const [selectedIdeaIndex, setSelectedIdeaIndex] = useState<number | null>(
     null,
   );
+
   const [generatedImage, setGeneratedImage] = useState<string | undefined>();
   const [isIdeating, setIsIdeating] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -388,9 +390,14 @@ export default function DashboardPage() {
                     }
                     onSave={handleSaveAsset}
                     onFeedback={async (liked: boolean) => {
-                      if (user && currentPrompt) {
+                      if (user && activeBrand && currentPrompt) {
                         try {
-                          await submitFeedback(user.id, currentPrompt, liked);
+                          await submitFeedback(
+                            user.id,
+                            activeBrand.id,
+                            currentPrompt,
+                            liked,
+                          );
                         } catch (e) {
                           console.error("Feedback submission failed:", e);
                         }
