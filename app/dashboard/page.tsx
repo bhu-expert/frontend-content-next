@@ -168,11 +168,17 @@ export default function DashboardPage() {
   const handleCreateBrand = async (data: Omit<Brand, "id">) => {
     if (!user) return;
     try {
-      const newBrand = await createBrand(user.id, data);
-      setActiveBrand(newBrand);
-      setActiveTab("strategy");
+      if (activeBrand) {
+        const updatedBrand = await updateBrand(activeBrand.id, data);
+        setActiveBrand({ ...activeBrand, ...updatedBrand });
+        setActiveTab("strategy");
+      } else {
+        const newBrand = await createBrand(user.id, data);
+        setActiveBrand(newBrand);
+        setActiveTab("strategy");
+      }
     } catch (e: any) {
-      setError(`Failed to create brand: ${e.message}`);
+      setError(`Failed to save brand: ${e.message}`);
     }
   };
 

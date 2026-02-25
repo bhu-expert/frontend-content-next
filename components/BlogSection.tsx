@@ -18,6 +18,8 @@ import {
 import { cn } from "@/lib/utils";
 import { BlogTopic, BlogResponse, fetchBlogIdeate, fetchBlogGenerate, saveBlog } from "@/services/api";
 import ReactMarkdown from "react-markdown";
+import { FeedbackWidget } from "./FeedbackWidget";
+import { useRouter } from "next/navigation";
 
 interface BlogSectionProps {
     userId: string;
@@ -32,8 +34,10 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
     const [isIdeating, setIsIdeating] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const router = useRouter();
 
     const handleSave = async () => {
         if (!blogContent) return;
@@ -48,11 +52,38 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                 status: "draft",
                 cover_image: blogContent.metadata.cover_image
             });
-            alert("Blog saved to hub!");
+            setIsSaved(true);
+            // alert("Blog saved to hub!"); // Removed alert for smoother UX
         } catch (e: any) {
             setError("Failed to save: " + e.message);
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleViewArticle = async () => {
+        if (!blogContent) return;
+        
+        if (!isSaved) {
+            setIsSaving(true);
+            try {
+                await saveBlog({
+                    user_id: userId,
+                    brand_id: brandId,
+                    title: blogContent.title,
+                    full_markdown: blogContent.full_markdown,
+                    metadata: blogContent.metadata,
+                    status: "draft",
+                    cover_image: blogContent.metadata.cover_image
+                });
+                setIsSaved(true);
+                router.push(`/blog/${blogContent.metadata.slug}`);
+            } catch (e: any) {
+                setError("Failed to save before viewing: " + e.message);
+                setIsSaving(false);
+            }
+        } else {
+            router.push(`/blog/${blogContent.metadata.slug}`);
         }
     };
 
@@ -83,6 +114,7 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
         try {
             const resp = await fetchBlogGenerate(userId, brandId, topicTitle);
             setBlogContent(resp);
+            setIsSaved(false);
         } catch (e: any) {
             setError(e.message);
         } finally {
@@ -269,10 +301,31 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                                     </div>
                                 </div>
 
-                                <div className="blog-markdown-container">
-                                    <ReactMarkdown>
-                                        {blogContent.full_markdown.replace(/^\s*#\s+.+?(\n|$)/, '')}
-                                    </ReactMarkdown>
+                                <div className="relative group">
+                                    <div className="blog-markdown-container max-h-[400px] overflow-hidden mask-image-linear-gradient opacity-80 group-hover:opacity-100 transition-opacity">
+                                        <ReactMarkdown>
+                                            {blogContent.full_markdown.replace(/^\s*#\s+.+?(\n|$)/, '')}
+                                        </ReactMarkdown>
+                                    </div>
+                                    <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background via-background/80 to-transparent flex items-end justify-center pb-4">
+                                        <button 
+                                            onClick={handleViewArticle}
+                                            disabled={isSaving}
+                                            className="px-8 py-3 bg-accent-secondary hover:bg-accent-secondary/90 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-accent-secondary/50 hover:-translate-y-1 transition-all uppercase tracking-widest flex items-center gap-2"
+                                        >
+                                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
+                                            {isSaved ? "Read Full Article" : "Save & Read Article"}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="mt-12 mb-12 border-t border-card-border pt-8">
+                                    <FeedbackWidget
+                                        userId={userId}
+                                        brandId={brandId}
+                                        prompt={blogContent.title}
+                                        className="bg-card/50"
+                                    />
                                 </div>
 
                                 <div className="bg-gradient-to-br from-card via-card/50 to-transparent rounded-[2.5rem] p-12 border border-card-border space-y-10 shadow-inner relative overflow-hidden group">

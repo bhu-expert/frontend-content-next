@@ -42,6 +42,7 @@ export const BrandIdentitySection = ({
     tone_of_voice: brand?.tone_of_voice || "",
     website_url: brand?.website_url || "",
     manifest: brand?.manifest || "",
+    location: brand?.location || "",
   });
 
   const [isScanning, setIsScanning] = useState(false);

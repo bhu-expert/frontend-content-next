@@ -27,6 +27,7 @@ export interface Brand {
   tone_of_voice: string;
   manifest: string;
   website_url?: string;
+  location?: string;
 }
 
 export interface PostIdea {
@@ -80,6 +81,7 @@ export interface SavedBlog {
   cover_image?: string;
   status: "draft" | "scheduled" | "published";
   scheduled_at?: string;
+  published_at?: string;
   created_at: string;
 }
 
@@ -91,6 +93,7 @@ export interface SaveBlogRequest {
   metadata: any;
   status?: "draft" | "scheduled" | "published";
   scheduled_at?: string;
+  published_at?: string;
   cover_image?: string;
 }
 
@@ -186,6 +189,7 @@ export async function fetchVisualAsset(
 
 export async function submitFeedback(
   userId: string,
+  brandId: string,
   prompt: string,
   liked: boolean,
   comment?: string,
@@ -196,6 +200,7 @@ export async function submitFeedback(
     headers,
     body: JSON.stringify({
       user_id: userId,
+      brand_id: brandId,
       prompt_used: prompt,
       liked,
       comment,
@@ -231,6 +236,24 @@ export async function createBrand(
     body: JSON.stringify({ ...brandData, user_id: userId }),
   });
   if (!response.ok) throw new Error("Failed to create brand");
+  const data = await response.json();
+  return data.data;
+}
+
+export async function updateBrand(
+  brandId: string,
+  brandData: Partial<Omit<Brand, "id">>,
+): Promise<Brand> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/brands/${brandId}`,
+    {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(brandData),
+    },
+  );
+  if (!response.ok) throw new Error("Failed to update brand");
   const data = await response.json();
   return data.data;
 }

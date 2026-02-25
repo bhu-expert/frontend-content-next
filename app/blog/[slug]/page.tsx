@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 
 export default function BlogPostPage() {
   const params = useParams();
@@ -129,7 +130,12 @@ export default function BlogPostPage() {
               </div>
               <div className="flex items-center gap-1.5 text-foreground/30 text-[11px] font-mono">
                 <Clock className="w-3 h-3" />
-                <span>{new Date(blog.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</span>
+                <span>
+                   {blog.status === 'published' && blog.published_at
+                      ? new Date(blog.published_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+                      : new Date(blog.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+                   }
+                </span>
               </div>
             </div>
 
@@ -178,6 +184,15 @@ export default function BlogPostPage() {
             <ReactMarkdown>
               {blog.full_markdown.replace(/^\s*#\s+.+?(\n|$)/, "")}
             </ReactMarkdown>
+          </div>
+
+          <div className="mt-16 border-t border-card-border pt-10">
+            <FeedbackWidget
+              userId={blog.user_id}
+              brandId={blog.brand_id}
+              prompt={blog.title} // Using title as proxy for prompt context
+              className="max-w-2xl mx-auto"
+            />
           </div>
 
           {/* Footer Metadata Card */}
