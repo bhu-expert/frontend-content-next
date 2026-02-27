@@ -28,6 +28,7 @@ export interface Brand {
   manifest: string;
   website_url?: string;
   location?: string;
+  guardrails?: string;
 }
 
 export interface PostIdea {

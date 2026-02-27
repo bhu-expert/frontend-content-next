@@ -173,11 +173,15 @@ export default function DashboardPage() {
       if (activeBrand) {
         const updatedBrand = await updateBrand(activeBrand.id, data);
         setActiveBrand({ ...activeBrand, ...updatedBrand });
-        setActiveTab("strategy");
+        alert("Brand updated successfully!");
+        
+        
       } else {
         const newBrand = await createBrand(user.id, data);
         setActiveBrand(newBrand);
-        setActiveTab("strategy");
+        alert("Brand created successfully!");
+        
+        
       }
     } catch (e: any) {
       setError(`Failed to save brand: ${e.message}`);
@@ -284,6 +288,9 @@ export default function DashboardPage() {
               <BrandIdentitySection
                 brand={activeBrand}
                 onSubmit={handleCreateBrand}
+                onBrandUpdate={(updated) =>
+                  setActiveBrand({ ...activeBrand, ...updated })
+                }
               />
             ) : !activeBrand ? (
               <div className="flex-1 flex items-center justify-center border-2 border-dashed border-card-border rounded-3xl">
