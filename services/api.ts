@@ -11,7 +11,7 @@ async function getAuthHeaders() {
   if (!session) {
     throw new Error("Not authenticated");
   }
-
+  console.log(session.access_token);
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${session.access_token}`,
@@ -26,7 +26,9 @@ export interface Brand {
   visual_style: string;
   tone_of_voice: string;
   manifest: string;
+  website_url?: string;
   location?: string;
+  guardrails?: string;
 }
 
 export interface PostIdea {
@@ -490,4 +492,47 @@ export async function generateApiKey(brandId: string): Promise<ApiKey> {
   if (!response.ok) throw new Error("Failed to generate API key");
   const data = await response.json();
   return data.data ?? data;
+}
+
+// Brand Scan Functions
+export async function triggerBrandScan(brandId: string, url?: string): Promise<{status: string, scan_id: string}> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/v1/data/brands/${brandId}/scan`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ url }),
+  });
+  if (!response.ok) throw new Error("Failed to trigger brand scan");
+  return response.json();
+}
+
+export async function fetchBrandScanStatus(brandId: string): Promise<any> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/v1/data/brands/${brandId}/scan/status`, {
+    headers,
+  });
+  if (!response.ok) throw new Error("Failed to fetch scan status");
+  return response.json();
+}
+
+export async function fetchBrandScanPreview(brandId: string): Promise<any> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/v1/data/brands/${brandId}/scan/preview`, {
+    headers,
+  });
+  if (!response.ok) throw new Error("Failed to fetch scan preview");
+  const data = await response.json();
+  return data.data;
+}
+
+export async function applyBrandScan(brandId: string, overwrite_fields: string[], website_url?: string): Promise<Brand> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/v1/data/brands/${brandId}/scan/apply`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ overwrite_fields, website_url }),
+  });
+  if (!response.ok) throw new Error("Failed to apply scan");
+  const data = await response.json();
+  return data.data;
 }
