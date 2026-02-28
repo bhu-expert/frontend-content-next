@@ -146,7 +146,12 @@ export const IntegrationsSection = ({ brandId }: IntegrationsSectionProps) => {
 
   const userKey = apiKey?.key || "YOUR_API_KEY";
 
-  const htmlSnippet = `<div id="content-agent-feed" data-api-key="${userKey}"></div>
+  const htmlSnippet = `<!-- Show all blogs -->
+<div id="content-agent-feed" data-api-key="${userKey}"></div>
+
+<!-- Or filter by category -->
+<div id="content-agent-feed" data-api-key="${userKey}" data-category="pets"></div>
+
 <script src="${API_BASE_URL}/integrations/html-embed/embed.js"></script>`;
 
   const reactSnippet = `// hooks/useContentAgent.ts
@@ -172,8 +177,9 @@ export interface Blog {
  * Hook to fetch blogs from Content Agent API
  * @param apiKey Your Brand API Key
  * @param slug Optional: Fetch a single blog by slug
+ * @param category Optional: Filter blogs by category (e.g. "pets", "tech")
  */
-export function useContentAgent(apiKey: string, slug?: string) {
+export function useContentAgent(apiKey: string, slug?: string, category?: string) {
     const [blogs, setBlogs] = useState<Blog[]>([]);
     const [blog, setBlog] = useState<Blog | null>(null);
     const [loading, setLoading] = useState(true);
@@ -189,25 +195,35 @@ export function useContentAgent(apiKey: string, slug?: string) {
 
                 if (slug) {
                     // Fetch single blog
-                    const response = await fetch(\`\${API_URL}/blogs/\${slug}\`, {
+                    const response = await fetch(\${'\`'}\${API_URL}/blogs/\${slug}\${'\`'}, {
                         headers: { "X-Content-Agent-Key": apiKey },
                     });
 
                     if (!response.ok)
-                        throw new Error(\`Failed to fetch blog: \${response.status}\`);
+                        throw new Error(\${'\`'}Failed to fetch blog: \${response.status}\${'\`'});
 
                     const data = await response.json();
                     setBlog(data);
                 } else {
                     // Fetch list
-                    const response = await fetch(\`\${API_URL}/blogs\`, {
+                    const response = await fetch(\${'\`'}\${API_URL}/blogs\${'\`'}, {
                         headers: { "X-Content-Agent-Key": apiKey },
                     });
 
                     if (!response.ok)
-                        throw new Error(\`Failed to fetch blogs: \${response.status}\`);
+                        throw new Error(\${'\`'}Failed to fetch blogs: \${response.status}\${'\`'});
 
-                    const data = await response.json();
+                    let data: Blog[] = await response.json();
+
+                    // Filter by category (slug prefix) if specified
+                    if (category) {
+                        const prefix = category.toLowerCase().trim();
+                        data = data.filter(blog => {
+                            const blogSlug = blog.metadata?.slug || blog.slug || '';
+                            return blogSlug.startsWith(prefix + '/') || blogSlug === prefix;
+                        });
+                    }
+
                     setBlogs(data);
                 }
             } catch (err: any) {
@@ -218,10 +234,15 @@ export function useContentAgent(apiKey: string, slug?: string) {
         }
 
         fetchData();
-    }, [apiKey, slug]);
+    }, [apiKey, slug, category]);
 
     return { blogs, blog, loading, error };
 }
+
+// Usage examples:
+// const { blogs } = useContentAgent("YOUR_KEY");              // all blogs
+// const { blogs } = useContentAgent("YOUR_KEY", undefined, "pets");  // only pet blogs
+// const { blog } = useContentAgent("YOUR_KEY", "pets/my-slug");       // single blog
 
 /**
  * Component to render the blog content using React Markdown.
@@ -232,7 +253,7 @@ export function useContentAgent(apiKey: string, slug?: string) {
  */
 export function ContentAgentBlog({ markdown, className }: { markdown: string; className?: string }) {
     return (
-        <article className={\`prose prose-lg max-w-none \${className || ''}\`}>
+        <article className={\${'\`'}prose prose-lg max-w-none \${className || ''}\${'\`'}}>
             <ReactMarkdown
                 components={{
                     // Customize Image Rendering
@@ -265,7 +286,12 @@ export function ContentAgentBlog({ markdown, className }: { markdown: string; cl
 2. Go to WordPress Admin → Plugins → Add New → Upload Plugin.
 3. Activate the plugin and navigate to Settings → Content Agent.
 4. Paste your API Key: ${userKey}
-5. Configure display options and save.`;
+5. Configure display options and save.
+
+Usage:
+  [content_agent_blog]                   — Show all blogs
+  [content_agent_blog category="pets"]   — Show only pet blogs
+  [content_agent_blog category="tech"]   — Show only tech blogs`;
 
   const SNIPPET_TABS: { id: SnippetTab; label: string; icon: React.ElementType }[] = [
     { id: "html", label: "HTML / JS Embed", icon: Globe },

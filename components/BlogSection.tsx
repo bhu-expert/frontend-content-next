@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
     Sparkles, 
     BookOpen, 
@@ -13,10 +13,19 @@ import {
     Check, 
     Library, 
     RefreshCw, 
-    BrainCircuit 
+    BrainCircuit,
+    Image,
+    Tag,
+    Plus,
+    X,
+    FolderOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BlogTopic, BlogResponse, fetchBlogIdeate, fetchBlogGenerate, saveBlog } from "@/services/api";
+import { 
+    BlogTopic, BlogResponse, BlogCategory,
+    fetchBlogIdeate, fetchBlogGenerate, saveBlog,
+    fetchCategories, createCategory, deleteCategory 
+} from "@/services/api";
 import ReactMarkdown from "react-markdown";
 import { FeedbackWidget } from "./FeedbackWidget";
 import { useRouter } from "next/navigation";
@@ -31,6 +40,17 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
     const [selectedTopic, setSelectedTopic] = useState<BlogTopic | null>(null);
     const [blogContent, setBlogContent] = useState<BlogResponse | null>(null);
     const [directInput, setDirectInput] = useState("");
+    const [imageSource, setImageSource] = useState<"ai" | "stock">("ai");
+    
+    // Category state
+    const [categories, setCategories] = useState<BlogCategory[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState<BlogCategory | null>(null);
+    const [showCategoryForm, setShowCategoryForm] = useState(false);
+    const [newCatName, setNewCatName] = useState("");
+    const [newCatSlug, setNewCatSlug] = useState("");
+    const [newCatDesc, setNewCatDesc] = useState("");
+    const [isCategoryLoading, setIsCategoryLoading] = useState(false);
+
     const [isIdeating, setIsIdeating] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -38,6 +58,48 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
+
+    // Load categories on mount
+    useEffect(() => {
+        loadCategories();
+    }, [brandId]);
+
+    const loadCategories = async () => {
+        try {
+            const cats = await fetchCategories(brandId);
+            setCategories(cats);
+        } catch (e) {
+            console.error("Failed to load categories", e);
+        }
+    };
+
+    const handleCreateCategory = async () => {
+        if (!newCatName || !newCatSlug) return;
+        setIsCategoryLoading(true);
+        try {
+            const cat = await createCategory(brandId, newCatName, newCatSlug, newCatDesc);
+            setCategories(prev => [cat, ...prev]);
+            setSelectedCategory(cat);
+            setNewCatName("");
+            setNewCatSlug("");
+            setNewCatDesc("");
+            setShowCategoryForm(false);
+        } catch (e: any) {
+            setError("Failed to create category: " + e.message);
+        } finally {
+            setIsCategoryLoading(false);
+        }
+    };
+
+    const handleDeleteCategory = async (catId: string) => {
+        try {
+            await deleteCategory(brandId, catId);
+            setCategories(prev => prev.filter(c => c.id !== catId));
+            if (selectedCategory?.id === catId) setSelectedCategory(null);
+        } catch (e: any) {
+            setError("Failed to delete category: " + e.message);
+        }
+    };
 
     const handleSave = async () => {
         if (!blogContent) return;
@@ -91,7 +153,10 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
         setIsIdeating(true);
         setError(null);
         try {
-            const resp = await fetchBlogIdeate(userId, brandId);
+            const resp = await fetchBlogIdeate(
+                userId, brandId, undefined, 5,
+                selectedCategory?.name
+            );
             setTopics(resp.topics);
             setSelectedTopic(null);
             setBlogContent(null);
@@ -112,7 +177,13 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
             setSelectedTopic({ title: topicTitle, angle: "Direct user directive", target_keywords: [] });
         }
         try {
-            const resp = await fetchBlogGenerate(userId, brandId, topicTitle);
+            const resp = await fetchBlogGenerate(
+                userId,
+                brandId,
+                topicTitle,
+                selectedCategory?.slug || undefined,
+                imageSource
+            );
             setBlogContent(resp);
             setIsSaved(false);
         } catch (e: any) {
@@ -155,8 +226,126 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                                     placeholder="What should we write about today?"
                                     value={directInput}
                                     onChange={(e) => setDirectInput(e.target.value)}
-                                    className="w-full bg-transparent border-none text-base focus:ring-0 placeholder:text-foreground/20 min-h-[100px] resize-none leading-relaxed text-foreground"
+                                    className="w-full bg-transparent border-none text-base focus:ring-0 placeholder:text-foreground/20 min-h-[80px] resize-none leading-relaxed text-foreground"
                                 />
+
+                                {/* Category Selector & Image Source Row */}
+                                <div className="flex flex-col gap-3 mt-3 pt-3 border-t border-card-border/50">
+                                    {/* Category Selector */}
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <FolderOpen className="w-3 h-3 text-foreground/30 shrink-0" />
+                                        <button
+                                            onClick={() => { setSelectedCategory(null); }}
+                                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                                !selectedCategory
+                                                    ? "bg-accent-secondary/20 text-accent-secondary"
+                                                    : "text-foreground/30 hover:text-foreground/50 bg-background/40"
+                                            }`}
+                                        >
+                                            All
+                                        </button>
+                                        {categories.map(cat => (
+                                            <div key={cat.id} className="flex items-center gap-0.5 group/cat">
+                                                <button
+                                                    onClick={() => setSelectedCategory(cat)}
+                                                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                                        selectedCategory?.id === cat.id
+                                                            ? "bg-accent-primary/20 text-accent-primary"
+                                                            : "text-foreground/30 hover:text-foreground/50 bg-background/40"
+                                                    }`}
+                                                >
+                                                    {cat.name}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteCategory(cat.id)}
+                                                    className="opacity-0 group-hover/cat:opacity-100 text-foreground/20 hover:text-red-400 transition-all p-0.5"
+                                                >
+                                                    <X className="w-2.5 h-2.5" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => setShowCategoryForm(!showCategoryForm)}
+                                            className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold text-foreground/30 hover:text-accent-secondary bg-background/40 hover:bg-accent-secondary/10 transition-all"
+                                        >
+                                            <Plus className="w-3 h-3" /> New
+                                        </button>
+                                    </div>
+
+                                    {/* Create Category Form */}
+                                    {showCategoryForm && (
+                                        <div className="flex gap-2 items-end animate-in slide-in-from-top-2 duration-200">
+                                            <div className="flex-1">
+                                                <label className="text-[9px] font-mono text-foreground/30 uppercase tracking-wider mb-1 block">Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={newCatName}
+                                                    onChange={(e) => {
+                                                        setNewCatName(e.target.value);
+                                                        setNewCatSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+                                                    }}
+                                                    placeholder="Pet Care"
+                                                    className="w-full bg-background/60 border border-card-border rounded-lg px-3 py-1.5 text-[11px] font-mono focus:outline-none focus:border-accent-secondary/40 placeholder:text-foreground/20 text-foreground"
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="text-[9px] font-mono text-foreground/30 uppercase tracking-wider mb-1 block">Slug</label>
+                                                <input
+                                                    type="text"
+                                                    value={newCatSlug}
+                                                    onChange={(e) => setNewCatSlug(e.target.value)}
+                                                    placeholder="pet-care"
+                                                    className="w-full bg-background/60 border border-card-border rounded-lg px-3 py-1.5 text-[11px] font-mono focus:outline-none focus:border-accent-secondary/40 placeholder:text-foreground/20 text-foreground"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={handleCreateCategory}
+                                                disabled={!newCatName || !newCatSlug || isCategoryLoading}
+                                                className="bg-accent-secondary/20 text-accent-secondary hover:bg-accent-secondary/30 disabled:opacity-30 text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all uppercase tracking-wider shrink-0"
+                                            >
+                                                {isCategoryLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add"}
+                                            </button>
+                                            <button
+                                                onClick={() => setShowCategoryForm(false)}
+                                                className="text-foreground/20 hover:text-foreground/50 p-1.5 transition-all shrink-0"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Image Source Toggle */}
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-mono text-foreground/20 uppercase tracking-wider">
+                                            {selectedCategory ? `Category: ${selectedCategory.name}` : "No category filter"}
+                                        </span>
+                                        <div className="flex items-center bg-background/60 border border-card-border rounded-lg p-0.5 shrink-0">
+                                            <button
+                                                onClick={() => setImageSource("ai")}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                                    imageSource === "ai"
+                                                        ? "bg-accent-secondary/20 text-accent-secondary shadow-sm"
+                                                        : "text-foreground/30 hover:text-foreground/50"
+                                                }`}
+                                            >
+                                                <Sparkles className="w-3 h-3" />
+                                                AI
+                                            </button>
+                                            <button
+                                                onClick={() => setImageSource("stock")}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                                    imageSource === "stock"
+                                                        ? "bg-accent-primary/20 text-accent-primary shadow-sm"
+                                                        : "text-foreground/30 hover:text-foreground/50"
+                                                }`}
+                                            >
+                                                <Image className="w-3 h-3" />
+                                                Stock
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="flex justify-between items-center mt-4 pt-4 border-t border-card-border">
                                     <span className="text-[10px] text-foreground/20 font-mono tracking-tight uppercase">Manual override active</span>
                                     <button 

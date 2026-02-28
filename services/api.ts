@@ -263,6 +263,7 @@ export async function fetchBlogIdeate(
   brandId: string,
   context?: string,
   numIdeas: number = 5,
+  categoryName?: string,
 ): Promise<BlogIdeationResponse> {
   const headers = await getAuthHeaders();
 
@@ -270,15 +271,18 @@ export async function fetchBlogIdeate(
   const timeoutId = setTimeout(() => controller.abort(), 600000); // 600s
 
   try {
+    const body: any = {
+      user_id: userId,
+      brand_id: brandId,
+      context,
+      num_ideas: numIdeas,
+    };
+    if (categoryName) body.category_name = categoryName;
+
     const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/ideate`, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        user_id: userId,
-        brand_id: brandId,
-        context,
-        num_ideas: numIdeas,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -295,6 +299,8 @@ export async function fetchBlogGenerate(
   userId: string,
   brandId: string,
   topic: string,
+  categorySlug?: string,
+  imageSource?: "ai" | "stock",
 ): Promise<BlogResponse> {
   const headers = await getAuthHeaders();
 
@@ -303,10 +309,14 @@ export async function fetchBlogGenerate(
   const timeoutId = setTimeout(() => controller.abort(), 600000); // 600 seconds
 
   try {
+    const body: any = { user_id: userId, brand_id: brandId, topic };
+    if (categorySlug) body.category_slug = categorySlug;
+    if (imageSource) body.image_source = imageSource;
+
     const response = await fetch(`${API_BASE_URL}/api/v1/agent/blog/generate`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ user_id: userId, brand_id: brandId, topic }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
@@ -322,6 +332,65 @@ export async function fetchBlogGenerate(
     }
     throw error;
   }
+}
+
+// --- BLOG CATEGORIES ---
+
+export interface BlogCategory {
+  id: string;
+  brand_id: string;
+  name: string;
+  slug: string;
+  description: string;
+  created_at: string;
+}
+
+export async function fetchCategories(
+  brandId: string,
+): Promise<BlogCategory[]> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/brands/${brandId}/categories`,
+    { headers },
+  );
+  if (!response.ok) throw new Error("Failed to fetch categories");
+  const data = await response.json();
+  return data.data || [];
+}
+
+export async function createCategory(
+  brandId: string,
+  name: string,
+  slug: string,
+  description: string = "",
+): Promise<BlogCategory> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/brands/${brandId}/categories`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name, slug, description }),
+    },
+  );
+  if (!response.ok) throw new Error("Failed to create category");
+  const data = await response.json();
+  return data.data;
+}
+
+export async function deleteCategory(
+  brandId: string,
+  categoryId: string,
+): Promise<void> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/data/brands/${brandId}/categories/${categoryId}`,
+    {
+      method: "DELETE",
+      headers,
+    },
+  );
+  if (!response.ok) throw new Error("Failed to delete category");
 }
 
 // Asset Hub Functions

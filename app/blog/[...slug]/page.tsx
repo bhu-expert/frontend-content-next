@@ -20,7 +20,10 @@ import { FeedbackWidget } from "@/components/FeedbackWidget";
 export default function BlogPostPage() {
   const params = useParams();
   const router = useRouter();
-  const slug = params?.slug as string;
+  // Catch-all route: params.slug is an array of segments
+  // e.g. /blog/pets/my-blog → ['pets', 'my-blog'] → 'pets/my-blog'
+  const slugSegments = params?.slug as string | string[];
+  const slug = Array.isArray(slugSegments) ? slugSegments.join('/') : slugSegments;
 
   const [blog, setBlog] = useState<SavedBlog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
