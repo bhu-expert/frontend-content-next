@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { LayoutDashboard, Megaphone, Palette, Bot, LineChart, Settings, LogOut, User, BookOpen, Library, Sun, Moon, Code2, Calendar } from "lucide-react";
+import { LayoutDashboard, Megaphone, Palette, Bot, LineChart, Settings, LogOut, User, BookOpen, Library, Sun, Moon, Code2, Calendar, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { icon: BookOpen, label: "Editorial Agent", id: "blog" },
   { icon: Palette, label: "Brand Identity", id: "brand" },
   { icon: Megaphone, label: "Campaign", id: "campaign" },
+  { icon: Layers, label: "Post Queue", id: "queue" },
   { icon: Library, label: "Asset Hub", id: "hub" },
   { icon: Calendar, label: "Schedule", id: "calendar" },
   { icon: Code2, label: "Integrations", id: "integrations" },
@@ -20,7 +21,7 @@ const NAV_ITEMS = [
 
 interface SidebarProps {
   activeId: string;
-  onSelect: (id: "strategy" | "brand" | "blog" | "hub" | "campaign" | "integrations" | "calendar") => void;
+  onSelect: (id: "strategy" | "brand" | "blog" | "hub" | "campaign" | "queue" | "integrations" | "calendar") => void;
 }
 
 export const Sidebar = ({ activeId, onSelect }: SidebarProps) => {
@@ -53,11 +54,11 @@ export const Sidebar = ({ activeId, onSelect }: SidebarProps) => {
         {NAV_ITEMS.map((item) => (
           <button
             key={item.id}
-            onClick={() => onSelect(item.id as "strategy" | "brand" | "blog" | "hub" | "campaign" | "integrations" | "calendar")}
+            onClick={() => onSelect(item.id as "strategy" | "brand" | "blog" | "hub" | "campaign" | "queue" | "integrations" | "calendar")}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group",
-              activeId === item.id 
-                ? "bg-accent-primary/10 text-accent-primary shadow-[0_0_20px_var(--accent-glow)]" 
+              activeId === item.id
+                ? "bg-accent-primary/10 text-accent-primary shadow-[0_0_20px_var(--accent-glow)]"
                 : "text-foreground/60 hover:bg-foreground/5 hover:text-foreground"
             )}
           >
@@ -68,35 +69,27 @@ export const Sidebar = ({ activeId, onSelect }: SidebarProps) => {
       </nav>
 
       <div className="mt-auto pt-6 border-t border-card-border space-y-4">
-         {/* Theme Toggle */}
-         <button
-            onClick={toggleTheme}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-foreground/60 hover:bg-foreground/5 hover:text-foreground transition-all duration-300"
-         >
-            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            <span className="font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
-         </button>
 
-         <div className="flex items-center gap-3 px-2">
-            <div className="w-10 h-10 rounded-full bg-accent-primary/10 border border-accent-primary/20 flex items-center justify-center overflow-hidden">
-                {user?.email ? (
-                    <img src={`https://ui-avatars.com/api/?name=${user.email}&background=3b82f6&color=fff`} alt="User" />
-                ) : (
-                    <User className="w-5 h-5 text-accent-primary/50" />
-                )}
-            </div>
-            <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate text-foreground">{user?.email?.split('@')[0] || "User"}</p>
-                <p className="text-[10px] text-foreground/40 tracking-wider">PREMIUM ACCESS</p>
-            </div>
-         </div>
-         
-         <button 
-            onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold text-foreground/40 hover:text-red-400 hover:bg-red-400/5 rounded-lg transition-all"
-         >
-            <LogOut className="w-4 h-4" /> SIGN OUT
-         </button>
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-10 h-10 rounded-full bg-accent-primary/10 border border-accent-primary/20 flex items-center justify-center overflow-hidden">
+            {user?.email ? (
+              <img src={`https://ui-avatars.com/api/?name=${user.email}&background=3b82f6&color=fff`} alt="User" />
+            ) : (
+              <User className="w-5 h-5 text-accent-primary/50" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-sm truncate text-foreground">{user?.email?.split('@')[0] || "User"}</p>
+            <p className="text-[10px] text-foreground/40 tracking-wider">PREMIUM ACCESS</p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-4 py-2 text-xs font-semibold text-foreground/40 hover:text-red-400 hover:bg-red-400/5 rounded-lg transition-all"
+        >
+          <LogOut className="w-4 h-4" /> SIGN OUT
+        </button>
       </div>
     </div>
   );

@@ -33,6 +33,25 @@ export interface PostIdea {
   message: string;
 }
 
+export interface ReelScriptIdea {
+  title: string;
+  hook: string;
+  scene_description: string;
+  voiceover_dialogue: string;
+  duration_seconds: number;
+  cta: string;
+  audio_suggestion: string;
+  hashtags: string[];
+  camera_angle?: string;
+  pacing?: string;
+  text_overlay?: string;
+  transitions?: string;
+}
+
+export interface ReelScriptIdeationResponse {
+  scripts: ReelScriptIdea[];
+}
+
 export interface IdeationResponse {
   ideas: PostIdea[];
 }
@@ -43,6 +62,27 @@ export interface AgentResponse {
     prompt: string;
     image_url: string;
   }[];
+}
+
+// Post Queue Interfaces
+export interface QueuedIdeaItem {
+  message: string;
+  idea_type: "scene" | "commercial_ad" | "reel_script";
+}
+
+export interface QueuedPost {
+  id: string;
+  idea_type: string;
+  message: string;
+  status: "queued" | "processing" | "completed" | "failed";
+  image_url?: string;
+  prompt_used?: string;
+  created_at: string;
+}
+
+export interface PostQueueResponse {
+  posts: QueuedPost[];
+  total: number;
 }
 
 // Asset Hub Interfaces
@@ -159,31 +199,108 @@ export async function fetchIdeate(
   }
 }
 
-export async function fetchVisualAsset(
+export async function fetchAdIdeate(
   userId: string,
   brandId: string,
-  message: string,
-): Promise<AgentResponse> {
+  numIdeas: number = 5,
+  context?: string,
+): Promise<IdeationResponse> {
   const headers = await getAuthHeaders();
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 600000); // 600s
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/agent/chat`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/agent/ad-ideate`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ user_id: userId, brand_id: brandId, message }),
+      body: JSON.stringify({
+        user_id: userId,
+        brand_id: brandId,
+        num_ideas: numIdeas,
+        context: context,
+      }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
-    if (!response.ok) throw new Error("Failed to generate visual asset");
+    if (!response.ok) throw new Error("Failed to fetch ad ideas");
     return response.json();
   } catch (error: any) {
-    if (error.name === "AbortError")
-      throw new Error("Visual generation timed out.");
+    if (error.name === "AbortError") throw new Error("Ad ideation timed out.");
     throw error;
   }
+}
+
+export async function fetchReelScriptIdeate(
+  userId: string,
+  brandId: string,
+  numIdeas: number = 3,
+  context?: string,
+): Promise<ReelScriptIdeationResponse> {
+  const headers = await getAuthHeaders();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s (reduced from 600s)
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/agent/reel-script/ideate`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        user_id: userId,
+        brand_id: brandId,
+        num_ideas: numIdeas,
+        context: context,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error("Failed to fetch reel script ideas");
+    return response.json();
+  } catch (error: any) {
+    if (error.name === "AbortError") throw new Error("Reel script ideation timed out.");
+    throw error;
+  }
+}
+
+export async function queuePosts(
+  userId: string,
+  brandId: string,
+  ideas: QueuedIdeaItem[],
+): Promise<{ status: string; count: number; queued: any[] }> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/v1/agent/queue-posts`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      user_id: userId,
+      brand_id: brandId,
+      ideas,
+    }),
+  });
+  if (!response.ok) throw new Error("Failed to queue posts");
+  return response.json();
+}
+
+export async function fetchPostQueue(
+  brandId: string,
+  status?: string,
+): Promise<PostQueueResponse> {
+  const headers = await getAuthHeaders();
+  let url = `${API_BASE_URL}/api/v1/agent/queue?brand_id=${brandId}`;
+  if (status) url += `&status=${status}`;
+  const response = await fetch(url, { headers });
+  if (!response.ok) throw new Error("Failed to fetch queue");
+  return response.json();
+}
+
+export async function deleteQueuedPost(postId: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_BASE_URL}/api/v1/agent/queue/${postId}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) throw new Error("Failed to remove from queue");
 }
 
 export async function submitFeedback(

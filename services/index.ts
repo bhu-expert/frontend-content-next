@@ -7,35 +7,19 @@ export {
   request,
   getAuthHeaders,
   fetchWithTimeout,
-} from './api-client';
+} from "./api-client";
 
 // Brands
-export type {
-  Brand,
-  CreateBrandInput,
-  UpdateBrandInput,
-} from './brands';
-export {
-  fetchUserBrands,
-  createBrand,
-  updateBrand,
-} from './brands';
+export type { Brand, CreateBrandInput, UpdateBrandInput } from "./brands";
+export { fetchUserBrands, createBrand, updateBrand } from "./brands";
 
 // Ideation
-export type { PostIdea, IdeationResponse, IdeationInput } from './ideation';
-export { fetchIdeas } from './ideation';
-
-// Visual Assets
-export type {
-  VisualAssetResult,
-  VisualAssetResponse,
-  VisualAssetInput,
-} from './visual-assets';
-export { generateVisualAsset } from './visual-assets';
+export type { PostIdea, IdeationResponse, IdeationInput } from "./ideation";
+export { fetchIdeas } from "./ideation";
 
 // Feedback
-export type { FeedbackInput } from './feedback';
-export { submitFeedback } from './feedback';
+export type { FeedbackInput } from "./feedback";
+export { submitFeedback } from "./feedback";
 
 // Blog
 export type {
@@ -48,14 +32,14 @@ export type {
   BlogGenerateInput,
   BlogCategory,
   CreateCategoryInput,
-} from './blog';
+} from "./blog";
 export {
   fetchBlogIdeas,
   generateBlog,
   fetchCategories,
   createCategory,
   deleteCategory,
-} from './blog';
+} from "./blog";
 
 // Assets
 export type {
@@ -64,7 +48,7 @@ export type {
   SavedBlog,
   SaveBlogInput,
   UpdateBlogInput,
-} from './assets';
+} from "./assets";
 export {
   fetchSavedImages,
   saveImage,
@@ -74,4 +58,17 @@ export {
   updateBlog,
   deleteSavedBlog,
   fetchBlogBySlug,
-} from './assets';
+} from "./assets";
+
+// Post Queue
+export type {
+  QueuedIdeaItem,
+  QueuedPost,
+  PostQueueResponse,
+} from "../services/api";
+export {
+  fetchAdIdeate,
+  queuePosts,
+  fetchPostQueue,
+  deleteQueuedPost,
+} from "./api";
