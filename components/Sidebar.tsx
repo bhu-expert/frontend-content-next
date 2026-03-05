@@ -44,7 +44,7 @@ export const Sidebar = ({ activeId, onSelect }: SidebarProps) => {
   };
 
   return (
-    <div className="w-64 border-r border-card-border bg-background/95 backdrop-blur-xl h-screen flex flex-col p-6 transition-colors duration-300">
+    <div className="w-64 border-r border-card-border bg-background/95 backdrop-blur-xl h-screen sticky top-0 self-start flex flex-col p-6 transition-colors duration-300">
       <div className="flex items-center justify-center mb-10 px-2 py-2">
         <Logo size="lg" />
       </div>
