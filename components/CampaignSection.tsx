@@ -579,11 +579,17 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                      <p className="text-sm text-center text-foreground/60">
                         {items.length} strategic concepts generated.
                     </p>
-                    <button 
+                    <button
                         onClick={handleExecute}
                         className="glass-button w-full bg-accent-secondary text-white font-bold py-4 hover:shadow-[0_0_20px_var(--accent-secondary)] flex items-center justify-center gap-2"
                     >
                         <Play className="w-4 h-4" /> EXECUTE CAMPAIGN
+                    </button>
+                    <button
+                        onClick={handleResetCampaign}
+                        className="glass-button w-full text-xs py-3 border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                    >
+                        <X className="w-3 h-3 inline mr-2" /> RESET CAMPAIGN
                     </button>
                 </div>
             )}
