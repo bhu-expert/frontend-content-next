@@ -10,6 +10,8 @@ export const metadata: Metadata = {
 };
 
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { Providers } from "@/lib/providers";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function RootLayout({
   children,
@@ -19,7 +21,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ErrorBoundary>
+          <Providers>
+            <ThemeProvider>{children}</ThemeProvider>
+          </Providers>
+        </ErrorBoundary>
       </body>
     </html>
   );

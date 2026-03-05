@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { ThumbsUp, ThumbsDown, Send, Loader2, CheckCircle2 } from "lucide-react";
-import { submitFeedback } from "@/services/api";
+import { submitFeedback } from "@/services";
 import { cn } from "@/lib/utils";
 
 interface FeedbackWidgetProps {
@@ -26,10 +26,16 @@ export const FeedbackWidget = ({ userId, brandId, prompt, className }: FeedbackW
 
   const handleSubmit = async () => {
     if (liked === null) return;
-    
+
     setIsSubmitting(true);
     try {
-      await submitFeedback(userId, brandId, prompt, liked, comment);
+      await submitFeedback({
+        user_id: userId,
+        brand_id: brandId,
+        prompt_used: prompt,
+        liked,
+        comment,
+      });
       setIsSuccess(true);
       setTimeout(() => {
         setIsExpanded(false);

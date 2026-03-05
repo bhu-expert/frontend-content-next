@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @theme {
   --color-background: var(--background);
@@ -37,6 +38,78 @@
     background-color: var(--background);
     color: var(--foreground);
     @apply selection:bg-[var(--accent-glow)] transition-colors duration-300;
+  }
+  
+  /* Prose/Typography Styles */
+  .prose {
+    --tw-prose-body: var(--foreground);
+    --tw-prose-headings: var(--foreground);
+    --tw-prose-links: var(--accent-primary);
+    --tw-prose-bold: var(--foreground);
+    --tw-prose-counters: var(--foreground/60);
+    --tw-prose-bullets: var(--foreground/40);
+    --tw-prose-hr: var(--card-border);
+    --tw-prose-quotes: var(--foreground/80);
+    --tw-prose-quote-borders: var(--card-border);
+    --tw-prose-captions: var(--foreground/60);
+    --tw-prose-code: var(--foreground);
+    --tw-prose-pre-code: var(--foreground);
+    --tw-prose-pre-bg: var(--card);
+    --tw-prose-th-borders: var(--card-border);
+    --tw-prose-td-borders: var(--card-border);
+  }
+  
+  .prose h1 {
+    @apply text-4xl font-bold mb-6;
+  }
+  
+  .prose h2 {
+    @apply text-2xl font-bold mt-8 mb-4;
+  }
+  
+  .prose h3 {
+    @apply text-xl font-semibold mt-6 mb-3;
+  }
+  
+  .prose p {
+    @apply leading-relaxed mb-4;
+  }
+  
+  .prose ul, .prose ol {
+    @apply mb-4 pl-6;
+  }
+  
+  .prose li {
+    @apply mb-2;
+  }
+  
+  .prose blockquote {
+    @apply border-l-4 pl-4 italic my-6;
+    border-color: var(--accent-primary);
+  }
+  
+  .prose code {
+    @apply bg-white/5 px-2 py-1 rounded text-sm font-mono;
+  }
+  
+  .prose pre {
+    @apply bg-white/5 rounded-lg p-4 my-4 overflow-x-auto;
+  }
+  
+  .prose pre code {
+    @apply bg-transparent p-0;
+  }
+  
+  .prose a {
+    @apply underline underline-offset-2 hover:text-[var(--accent-primary)] transition-colors;
+  }
+  
+  .prose img {
+    @apply rounded-lg my-4;
+  }
+  
+  .prose hr {
+    @apply my-8;
   }
 }
 

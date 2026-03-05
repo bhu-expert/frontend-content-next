@@ -3,11 +3,11 @@
 import React, { useState } from "react";
 import { Palette, Target, Zap, Globe, MessageSquare, Save, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Brand } from "@/services/api";
+import type { Brand, CreateBrandInput } from "@/services";
 
 interface BrandIdentitySectionProps {
   brand: Brand | null;
-  onSubmit: (data: Omit<Brand, "id">) => void;
+  onSubmit: (data: CreateBrandInput) => void;
 }
 
 export const BrandIdentitySection = ({ brand, onSubmit }: BrandIdentitySectionProps) => {

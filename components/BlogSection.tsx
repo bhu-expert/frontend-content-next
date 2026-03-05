@@ -1,31 +1,34 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { 
-    Sparkles, 
-    BookOpen, 
-    PenTool, 
-    Hash, 
-    FileText, 
-    ChevronRight, 
-    Loader2, 
-    Copy, 
-    Check, 
-    Library, 
-    RefreshCw, 
-    BrainCircuit,
-    Image,
-    Tag,
+import React, { useState, useEffect, useCallback } from "react";
+import {
+    Sparkles,
+    BookOpen,
+    PenTool,
+    ChevronRight,
+    Loader2,
+    Copy,
+    Check,
     Plus,
     X,
-    FolderOpen
+    FolderOpen,
+    Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { 
-    BlogTopic, BlogResponse, BlogCategory,
-    fetchBlogIdeate, fetchBlogGenerate, saveBlog,
-    fetchCategories, createCategory, deleteCategory 
-} from "@/services/api";
+import {
+    type BlogTopic,
+    type BlogResponse,
+    type BlogCategory,
+} from "@/services";
+import {
+    useBlogIdeation,
+    useGenerateBlog,
+    useCategories,
+    useCreateCategory,
+    useDeleteCategory,
+    useSaveBlog,
+} from "@/lib/hooks/useQueries";
+import { usePersistedState } from "@/lib/hooks/usePersistedState";
 import ReactMarkdown from "react-markdown";
 import { FeedbackWidget } from "./FeedbackWidget";
 import { useRouter } from "next/navigation";
@@ -36,162 +39,143 @@ interface BlogSectionProps {
 }
 
 export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
-    const [topics, setTopics] = useState<BlogTopic[]>([]);
-    const [selectedTopic, setSelectedTopic] = useState<BlogTopic | null>(null);
-    const [blogContent, setBlogContent] = useState<BlogResponse | null>(null);
     const [directInput, setDirectInput] = useState("");
     const [imageSource, setImageSource] = useState<"ai" | "stock">("ai");
-    
+
     // Category state
-    const [categories, setCategories] = useState<BlogCategory[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<BlogCategory | null>(null);
     const [showCategoryForm, setShowCategoryForm] = useState(false);
     const [newCatName, setNewCatName] = useState("");
     const [newCatSlug, setNewCatSlug] = useState("");
     const [newCatDesc, setNewCatDesc] = useState("");
-    const [isCategoryLoading, setIsCategoryLoading] = useState(false);
 
-    const [isIdeating, setIsIdeating] = useState(false);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [isSaved, setIsSaved] = useState(false);
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    
+    // Persisted blog draft - survives page refresh
+    // Use a stable key that doesn't change during component lifecycle
+    const [blogContent, setBlogContent] = usePersistedState<BlogResponse | null>(
+        `blog-draft-${userId}-${brandId}`,
+        null,
+        { ttl: 1000 * 60 * 60 * 2 } // 2 hours TTL
+    );
+    const [isSaved, setIsSaved] = useState(false);
+
     const router = useRouter();
 
-    // Load categories on mount
-    useEffect(() => {
-        loadCategories();
-    }, [brandId]);
+    // React Query hooks
+    const { data: ideationData, isLoading: isIdeating, error: ideationError } = useBlogIdeation(
+        userId,
+        brandId,
+        selectedCategory?.name,
+    );
 
-    const loadCategories = async () => {
-        try {
-            const cats = await fetchCategories(brandId);
-            setCategories(cats);
-        } catch (e) {
-            console.error("Failed to load categories", e);
+    const { data: categories, isLoading: isLoadingCategories } = useCategories(brandId);
+
+    const generateBlog = useGenerateBlog();
+    const createCategory = useCreateCategory(brandId);
+    const deleteCategory = useDeleteCategory(brandId);
+    const saveBlogMutation = useSaveBlog();
+
+    // Sync errors from React Query
+    useEffect(() => {
+        if (ideationError) {
+            setError(ideationError.message);
         }
-    };
+    }, [ideationError]);
 
     const handleCreateCategory = async () => {
         if (!newCatName || !newCatSlug) return;
-        setIsCategoryLoading(true);
         try {
-            const cat = await createCategory(brandId, newCatName, newCatSlug, newCatDesc);
-            setCategories(prev => [cat, ...prev]);
+            const cat = await createCategory.mutateAsync({
+                name: newCatName,
+                slug: newCatSlug,
+                description: newCatDesc,
+            });
             setSelectedCategory(cat);
             setNewCatName("");
             setNewCatSlug("");
             setNewCatDesc("");
             setShowCategoryForm(false);
-        } catch (e: any) {
-            setError("Failed to create category: " + e.message);
-        } finally {
-            setIsCategoryLoading(false);
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Unknown error";
+            setError(`Failed to create category: ${message}`);
         }
     };
 
     const handleDeleteCategory = async (catId: string) => {
         try {
-            await deleteCategory(brandId, catId);
-            setCategories(prev => prev.filter(c => c.id !== catId));
+            await deleteCategory.mutateAsync(catId);
             if (selectedCategory?.id === catId) setSelectedCategory(null);
-        } catch (e: any) {
-            setError("Failed to delete category: " + e.message);
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Unknown error";
+            setError(`Failed to delete category: ${message}`);
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!blogContent) return;
-        setIsSaving(true);
         try {
-            await saveBlog({
+            await saveBlogMutation.mutateAsync({
                 user_id: userId,
                 brand_id: brandId,
                 title: blogContent.title,
                 full_markdown: blogContent.full_markdown,
                 metadata: blogContent.metadata,
                 status: "draft",
-                cover_image: blogContent.metadata.cover_image
+                cover_image: blogContent.metadata.cover_image,
             });
             setIsSaved(true);
-            // alert("Blog saved to hub!"); // Removed alert for smoother UX
-        } catch (e: any) {
-            setError("Failed to save: " + e.message);
-        } finally {
-            setIsSaving(false);
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Unknown error";
+            setError(`Failed to save: ${message}`);
         }
-    };
+    }, [blogContent, userId, brandId, saveBlogMutation]);
 
-    const handleViewArticle = async () => {
+    const handleViewArticle = useCallback(async () => {
         if (!blogContent) return;
-        
+
         if (!isSaved) {
-            setIsSaving(true);
             try {
-                await saveBlog({
+                await saveBlogMutation.mutateAsync({
                     user_id: userId,
                     brand_id: brandId,
                     title: blogContent.title,
                     full_markdown: blogContent.full_markdown,
                     metadata: blogContent.metadata,
                     status: "draft",
-                    cover_image: blogContent.metadata.cover_image
+                    cover_image: blogContent.metadata.cover_image,
                 });
                 setIsSaved(true);
                 router.push(`/blog/${blogContent.metadata.slug}`);
-            } catch (e: any) {
-                setError("Failed to save before viewing: " + e.message);
-                setIsSaving(false);
+            } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : "Unknown error";
+                setError(`Failed to save before viewing: ${message}`);
             }
         } else {
             router.push(`/blog/${blogContent.metadata.slug}`);
         }
-    };
+    }, [blogContent, isSaved, userId, brandId, saveBlogMutation, router]);
 
-    const handleIdeate = async () => {
-        setIsIdeating(true);
-        setError(null);
-        try {
-            const resp = await fetchBlogIdeate(
-                userId, brandId, undefined, 5,
-                selectedCategory?.name
-            );
-            setTopics(resp.topics);
-            setSelectedTopic(null);
-            setBlogContent(null);
-        } catch (e: any) {
-            setError(e.message);
-        } finally {
-            setIsIdeating(false);
-        }
-    };
-
-    const handleGenerate = async (topicTitle: string, topicAngle?: string) => {
+    const handleGenerate = useCallback(async (topicTitle: string, topicAngle?: string) => {
         if (!topicTitle) return;
-        setIsGenerating(true);
         setError(null);
-        if (topicAngle) {
-            setSelectedTopic({ title: topicTitle, angle: topicAngle, target_keywords: [] });
-        } else {
-            setSelectedTopic({ title: topicTitle, angle: "Direct user directive", target_keywords: [] });
-        }
+        
         try {
-            const resp = await fetchBlogGenerate(
-                userId,
-                brandId,
-                topicTitle,
-                selectedCategory?.slug || undefined,
-                imageSource
-            );
+            const resp = await generateBlog.mutateAsync({
+                user_id: userId,
+                brand_id: brandId,
+                topic: topicTitle,
+                category_slug: selectedCategory?.slug,
+                image_source: imageSource,
+            });
             setBlogContent(resp);
             setIsSaved(false);
-        } catch (e: any) {
-            setError(e.message);
-        } finally {
-            setIsGenerating(false);
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Unknown error";
+            setError(message);
         }
-    };
+    }, [userId, brandId, selectedCategory, imageSource, generateBlog, setBlogContent]);
 
     const handleCopy = () => {
         if (blogContent) {
@@ -200,6 +184,9 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
             setTimeout(() => setCopied(false), 2000);
         }
     };
+
+    const topics = ideationData?.topics ?? [];
+    const isGenerating = generateBlog.isPending;
 
     return (
         <div className="flex-1 flex gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 h-full overflow-hidden">
@@ -218,11 +205,11 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                             </div>
                         </div>
 
-                        {/* Direct Prompt Area - FIX: More visible and instant */}
+                        {/* Direct Prompt Area */}
                         <div className="relative group p-[1px] rounded-2xl bg-gradient-to-br from-accent-secondary/20 via-accent-primary/10 to-transparent">
                             <div className="bg-background/80 backdrop-blur-3xl rounded-[15px] p-5 border border-card-border group-focus-within:border-accent-secondary/40 transition-all duration-500 shadow-2xl">
                                 <label className="text-[10px] font-bold text-accent-secondary uppercase tracking-[0.2em] mb-3 block">Topic Directive</label>
-                                <textarea 
+                                <textarea
                                     placeholder="What should we write about today?"
                                     value={directInput}
                                     onChange={(e) => setDirectInput(e.target.value)}
@@ -235,24 +222,26 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <FolderOpen className="w-3 h-3 text-foreground/30 shrink-0" />
                                         <button
-                                            onClick={() => { setSelectedCategory(null); }}
-                                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                            onClick={() => setSelectedCategory(null)}
+                                            className={cn(
+                                                "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
                                                 !selectedCategory
                                                     ? "bg-accent-secondary/20 text-accent-secondary"
                                                     : "text-foreground/30 hover:text-foreground/50 bg-background/40"
-                                            }`}
+                                            )}
                                         >
                                             All
                                         </button>
-                                        {categories.map(cat => (
+                                        {categories?.map((cat) => (
                                             <div key={cat.id} className="flex items-center gap-0.5 group/cat">
                                                 <button
                                                     onClick={() => setSelectedCategory(cat)}
-                                                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                                    className={cn(
+                                                        "px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
                                                         selectedCategory?.id === cat.id
                                                             ? "bg-accent-primary/20 text-accent-primary"
                                                             : "text-foreground/30 hover:text-foreground/50 bg-background/40"
-                                                    }`}
+                                                    )}
                                                 >
                                                     {cat.name}
                                                 </button>
@@ -300,10 +289,10 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                                             </div>
                                             <button
                                                 onClick={handleCreateCategory}
-                                                disabled={!newCatName || !newCatSlug || isCategoryLoading}
+                                                disabled={!newCatName || !newCatSlug || createCategory.isPending}
                                                 className="bg-accent-secondary/20 text-accent-secondary hover:bg-accent-secondary/30 disabled:opacity-30 text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all uppercase tracking-wider shrink-0"
                                             >
-                                                {isCategoryLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add"}
+                                                {createCategory.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add"}
                                             </button>
                                             <button
                                                 onClick={() => setShowCategoryForm(false)}
@@ -322,24 +311,26 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                                         <div className="flex items-center bg-background/60 border border-card-border rounded-lg p-0.5 shrink-0">
                                             <button
                                                 onClick={() => setImageSource("ai")}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                                className={cn(
+                                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
                                                     imageSource === "ai"
                                                         ? "bg-accent-secondary/20 text-accent-secondary shadow-sm"
                                                         : "text-foreground/30 hover:text-foreground/50"
-                                                }`}
+                                                )}
                                             >
                                                 <Sparkles className="w-3 h-3" />
                                                 AI
                                             </button>
                                             <button
                                                 onClick={() => setImageSource("stock")}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                                                className={cn(
+                                                    "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
                                                     imageSource === "stock"
                                                         ? "bg-accent-primary/20 text-accent-primary shadow-sm"
                                                         : "text-foreground/30 hover:text-foreground/50"
-                                                }`}
+                                                )}
                                             >
-                                                <Image className="w-3 h-3" />
+                                                <ImageIcon className="w-3 h-3" />
                                                 Stock
                                             </button>
                                         </div>
@@ -348,7 +339,7 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
 
                                 <div className="flex justify-between items-center mt-4 pt-4 border-t border-card-border">
                                     <span className="text-[10px] text-foreground/20 font-mono tracking-tight uppercase">Manual override active</span>
-                                    <button 
+                                    <button
                                         onClick={() => handleGenerate(directInput)}
                                         disabled={!directInput || isGenerating}
                                         className="bg-accent-secondary hover:bg-accent-secondary/90 disabled:opacity-30 disabled:grayscale text-white text-[10px] font-black px-5 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(168,85,247,0.3)] uppercase tracking-wider translate-y-0 active:translate-y-1"
@@ -364,14 +355,9 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                     <div className="flex-1 overflow-hidden flex flex-col gap-4">
                         <div className="flex items-center justify-between px-1">
                             <h3 className="text-[10px] font-mono font-bold text-foreground/20 uppercase tracking-[0.2em]">Strategic Suggestions</h3>
-                            <button 
-                                onClick={handleIdeate}
-                                disabled={isIdeating}
-                                className="text-[9px] font-bold text-accent-primary hover:text-accent-primary/80 transition-colors flex items-center gap-1.5 uppercase tracking-widest"
-                            >
-                                <RefreshCw className={cn("w-3 h-3", isIdeating && "animate-spin")} />
-                                Refresh
-                            </button>
+                            <span className="text-[9px] font-bold text-accent-primary/60 uppercase tracking-widest">
+                                {selectedCategory ? `Filter: ${selectedCategory.name}` : "All Topics"}
+                            </span>
                         </div>
 
                         <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
@@ -387,9 +373,10 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                                         disabled={isGenerating}
                                         className={cn(
                                             "w-full text-left p-5 rounded-2xl border transition-all group relative overflow-hidden",
-                                            selectedTopic?.title === topic.title
-                                                ? "bg-accent-secondary/10 border-accent-secondary/40 shadow-[0_0_30px_rgba(168,85,247,0.1)]"
-                                                : "bg-card border-card-border hover:border-foreground/10 hover:bg-foreground/5"
+                                            isGenerating
+                                                ? "opacity-50 cursor-not-allowed"
+                                                : "",
+                                            "bg-card border-card-border hover:border-foreground/10 hover:bg-foreground/5"
                                         )}
                                     >
                                         <div className="relative z-10">
@@ -437,15 +424,34 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                             <div className="flex items-center gap-3">
                                 <button
                                     onClick={handleSave}
-                                    disabled={isSaving}
-                                    className="px-4 py-2 bg-accent-secondary/10 hover:bg-accent-secondary/20 border border-accent-secondary/30 rounded-xl text-[11px] font-black text-accent-secondary flex items-center gap-2.5 transition-all shadow-[0_0_20px_rgba(168,85,247,0.1)] active:scale-95 disabled:opacity-50"
+                                    disabled={saveBlogMutation.isPending || isSaved}
+                                    className={cn(
+                                        "px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2",
+                                        isSaved
+                                            ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                            : "bg-accent-primary text-white hover:bg-accent-primary/90"
+                                    )}
                                 >
-                                    <Library className="w-3.5 h-3.5" />
-                                    {isSaving ? "SAVING..." : "SAVE TO HUB"}
+                                    {saveBlogMutation.isPending ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : isSaved ? (
+                                        <Check className="w-3 h-3" />
+                                    ) : (
+                                        <Check className="w-3 h-3 opacity-0" />
+                                    )}
+                                    {isSaved ? "Saved" : "Save Draft"}
+                                </button>
+                                <button
+                                    onClick={handleViewArticle}
+                                    disabled={!isSaved}
+                                    className="px-4 py-2 bg-accent-secondary text-white rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-accent-secondary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    View Article
                                 </button>
                                 <button
                                     onClick={handleCopy}
-                                    className="p-2.5 bg-card hover:bg-foreground/10 border border-card-border rounded-xl text-foreground/60 hover:text-foreground transition-all active:scale-95"
+                                    className="p-2 glass-button text-foreground/40 hover:text-foreground transition-all"
+                                    title="Copy markdown"
                                 >
                                     {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
                                 </button>
@@ -453,170 +459,45 @@ export const BlogSection = ({ userId, brandId }: BlogSectionProps) => {
                         )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-12 custom-scrollbar bg-background/40">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
                         {isGenerating ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center space-y-8">
-                                <div className="relative group">
-                                    <div className="absolute inset-0 bg-blue-500/20 blur-3xl animate-pulse" />
-                                    <Loader2 className="w-16 h-16 text-blue-500 animate-spin relative z-10" />
-                                    <Sparkles className="w-5 h-5 text-purple-400 absolute -top-1 -right-1 animate-bounce z-10" />
+                            <div className="h-full flex flex-col items-center justify-center gap-4">
+                                <div className="relative">
+                                    <div className="w-16 h-16 rounded-full border-4 border-accent-secondary/20 border-t-accent-secondary animate-spin" />
+                                    <PenTool className="w-6 h-6 text-accent-secondary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
                                 </div>
-                                <div className="space-y-3">
-                                    <h3 className="font-black text-3xl tracking-tighter bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-primary bg-clip-text text-transparent animate-gradient-x p-2">Synthesizing Narrative...</h3>
-                                    <p className="text-sm text-foreground/40 max-w-sm mx-auto leading-relaxed font-medium">
-                                        Distilling brand parameters into multi-layered semantic drafts with optimized keyword distribution.
-                                    </p>
-                                </div>
-                                <div className="w-64 h-1.5 bg-card border border-card-border rounded-full overflow-hidden shadow-2xl relative">
-                                    <div className="h-full bg-gradient-to-r from-accent-primary via-accent-secondary to-accent-primary w-3/4 animate-[shimmer_2s_infinite] absolute inset-y-0 left-0" />
-                                </div>
+                                <p className="text-xs font-mono text-foreground/40 uppercase tracking-widest animate-pulse">Synthesizing editorial content...</p>
                             </div>
                         ) : blogContent ? (
-                            <div className="space-y-20 max-w-4xl mx-auto py-12 animate-in fade-in slide-in-from-bottom-12 duration-1000">
-                                <div className="space-y-10 text-center border-b border-card-border pb-20 relative">
-                                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 text-[9px] font-black text-accent-secondary/40 uppercase tracking-[0.5em] font-mono">Draft v1.0 // Cluster-09</div>
-                                    <h1 className="text-6xl font-black tracking-tighter text-foreground leading-[1.05] drop-shadow-2xl">
-                                        {blogContent.title}
-                                    </h1>
-                                    <div className="flex gap-10 justify-center items-center font-mono">
-                                        <div className="flex items-center gap-2.5">
-                                            <Hash className="w-3.5 h-3.5 text-accent-secondary opacity-60" />
-                                            <span className="text-[11px] font-bold text-foreground/30 uppercase tracking-[0.2em]">{blogContent.metadata.slug}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2.5">
-                                            <FileText className="w-3.5 h-3.5 text-accent-primary opacity-60" />
-                                            <span className="text-[11px] font-bold text-foreground/30 uppercase tracking-[0.2em]">{blogContent.full_markdown.length} Lexical Units</span>
-                                        </div>
+                            <div className="max-w-3xl mx-auto">
+                                <article className="prose prose-invert prose-lg max-w-none">
+                                    <h1 className="text-3xl font-bold mb-2 text-foreground">{blogContent.title}</h1>
+                                    <div className="text-foreground/40 text-sm mb-8 font-mono">
+                                        /{blogContent.metadata.slug}
                                     </div>
-                                </div>
-
-                                <div className="relative group">
-                                    <div className="blog-markdown-container max-h-[400px] overflow-hidden mask-image-linear-gradient opacity-80 group-hover:opacity-100 transition-opacity">
-                                        <ReactMarkdown>
-                                            {blogContent.full_markdown.replace(/^\s*#\s+.+?(\n|$)/, '')}
-                                        </ReactMarkdown>
-                                    </div>
-                                    <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background via-background/80 to-transparent flex items-end justify-center pb-4">
-                                        <button 
-                                            onClick={handleViewArticle}
-                                            disabled={isSaving}
-                                            className="px-8 py-3 bg-accent-secondary hover:bg-accent-secondary/90 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-accent-secondary/50 hover:-translate-y-1 transition-all uppercase tracking-widest flex items-center gap-2"
-                                        >
-                                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
-                                            {isSaved ? "Read Full Article" : "Save & Read Article"}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="mt-12 mb-12 border-t border-card-border pt-8">
-                                    <FeedbackWidget
-                                        userId={userId}
-                                        brandId={brandId}
-                                        prompt={blogContent.title}
-                                        className="bg-card/50"
-                                    />
-                                </div>
-
-                                <div className="bg-gradient-to-br from-card via-card/50 to-transparent rounded-[2.5rem] p-12 border border-card-border space-y-10 shadow-inner relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 w-64 h-64 bg-accent-secondary/5 blur-[100px] pointer-events-none group-hover:bg-accent-secondary/10 transition-all duration-1000" />
-                                    <div className="flex items-center gap-4 relative z-10">
-                                        <div className="p-2 bg-accent-secondary/20 rounded-lg">
-                                            <BrainCircuit className="w-5 h-5 text-accent-secondary" />
-                                        </div>
-                                        <h3 className="text-[11px] font-mono font-black text-foreground/50 uppercase tracking-[0.4em]">SEO Strategy Manifest</h3>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-16 relative z-10">
-                                        <div className="space-y-4">
-                                            <p className="text-[9px] font-black text-accent-secondary uppercase tracking-widest flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-accent-secondary shadow-[0_0_10px_var(--accent-secondary)]" />
-                                                Indexable Title
-                                            </p>
-                                            <p className="text-xl font-bold text-foreground/95 leading-tight tracking-tight">{blogContent.metadata.meta_title}</p>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <p className="text-[9px] font-black text-accent-primary uppercase tracking-widest flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-accent-primary shadow-[0_0_10px_var(--accent-primary)]" />
-                                                Description Manifest
-                                            </p>
-                                            <p className="text-sm text-foreground/50 leading-relaxed font-medium italic">{blogContent.metadata.meta_description}</p>
-                                        </div>
-                                    </div>
-                                    <div className="pt-10 border-t border-card-border relative z-10">
-                                        <p className="text-[9px] font-black text-foreground/20 uppercase tracking-widest mb-6">Semantic Keyword Cloud</p>
-                                        <div className="flex flex-wrap gap-3">
-                                            {blogContent.metadata.keywords.map((kw, i) => (
-                                                <span key={i} className="px-4 py-2 rounded-xl bg-card text-[10px] font-mono font-bold text-accent-primary/70 border border-card-border uppercase tracking-widest hover:border-accent-primary/30 hover:bg-accent-primary/5 hover:text-accent-primary transition-all cursor-default shadow-sm">
-                                                    #{kw}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : error ? (
-                            <div className="h-full flex flex-col items-center justify-center text-red-500/80 p-12 text-center">
-                                <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6 animate-pulse">
-                                    <BrainCircuit className="w-10 h-10" />
-                                </div>
-                                <h3 className="text-xl font-bold uppercase tracking-widest mb-2">Generation Interrupted</h3>
-                                <p className="font-mono text-sm max-w-md bg-red-500/5 p-4 rounded-xl border border-red-500/20">
-                                    {error}
-                                </p>
-                                <button 
-                                    onClick={() => setError(null)}
-                                    className="mt-8 px-6 py-2 bg-card border border-card-border hover:border-red-500/30 rounded-lg text-xs font-bold uppercase tracking-widest transition-all"
-                                >
-                                    Dismiss Signal
-                                </button>
+                                    <ReactMarkdown>{blogContent.full_markdown}</ReactMarkdown>
+                                </article>
                             </div>
                         ) : (
-                            <div className="h-full flex flex-col items-center justify-center opacity-10 grayscale">
-                                <PenTool className="w-40 h-40 mb-10 translate-y-4 text-foreground" />
-                                <p className="font-black text-4xl uppercase tracking-tighter text-foreground">Standby</p>
-                                <p className="text-[10px] font-mono mt-5 uppercase tracking-[0.8em] font-bold text-foreground">Waiting for Narrative Seed</p>
+                            <div className="h-full flex flex-col items-center justify-center opacity-10">
+                                <BookOpen className="w-16 h-16 mb-4" />
+                                <p className="text-sm uppercase tracking-widest">No content generated</p>
+                                <p className="text-xs text-foreground/40 mt-2">Select a topic or enter a directive to begin</p>
                             </div>
                         )}
                     </div>
+
+                    {blogContent && (
+                        <div className="p-4 border-t border-card-border bg-card/30">
+                            <FeedbackWidget
+                                userId={userId}
+                                brandId={brandId}
+                                prompt={blogContent.title}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
-
-            <style jsx global>{`
-                .blog-markdown-container h1 { font-size: 3.5rem; font-weight: 900; margin-bottom: 2.5rem; color: var(--foreground); letter-spacing: -0.06em; line-height: 1; }
-                .blog-markdown-container h2 { font-size: 2.25rem; font-weight: 800; margin-top: 5rem; margin-bottom: 2rem; color: var(--accent-secondary); letter-spacing: -0.03em; position: relative; display: inline-block; }
-                .blog-markdown-container h2::after { content: ''; position: absolute; bottom: -8px; left: 0; width: 40px; height: 4px; background: var(--accent-secondary); border-radius: 2px; }
-                .blog-markdown-container h3 { font-size: 1.75rem; font-weight: 700; margin-top: 4rem; margin-bottom: 1.5rem; color: var(--accent-primary); letter-spacing: -0.02em; }
-                .blog-markdown-container p { font-size: 1.25rem; line-height: 1.9; margin-bottom: 2.25rem; text-align: left; color: var(--foreground); font-medium; opacity: 0.75; }
-                .blog-markdown-container ul { list-style-type: none; margin-left: 0; margin-bottom: 3rem; }
-                .blog-markdown-container li { position: relative; padding-left: 2rem; margin-bottom: 1rem; font-size: 1.15rem; color: var(--foreground); opacity: 0.8; }
-                .blog-markdown-container li::before { content: '→'; position: absolute; left: 0; color: var(--accent-secondary); font-weight: bold; }
-                .blog-markdown-container strong { color: var(--foreground); font-weight: 900; }
-                .blog-markdown-container blockquote { 
-                    border-left: 6px solid var(--accent-secondary); 
-                    padding: 3rem; 
-                    font-style: italic; 
-                    margin: 4rem 0; 
-                    background: linear-gradient(to right, rgba(168, 85, 247, 0.08), transparent); 
-                    border-radius: 0 3rem 3rem 0; 
-                    font-size: 1.5rem; 
-                    line-height: 1.6; 
-                    color: var(--foreground);
-                    opacity: 0.9;
-                    box-shadow: -20px 0 50px -20px rgba(168, 85, 247, 0.2);
-                }
-
-                @keyframes shimmer {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(100%); }
-                }
-                @keyframes gradient-x {
-                    0%, 100% { background-position: 0% 50%; }
-                    50% { background-position: 100% 50%; }
-                }
-                .animate-gradient-x {
-                    background-size: 200% 200%;
-                    animation: gradient-x 3s ease infinite;
-                }
-            `}</style>
         </div>
     );
 };

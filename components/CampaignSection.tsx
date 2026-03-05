@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Sparkles, Play, Save, Loader2, CheckCircle2, Circle, AlertCircle, FileText, Image as ImageIcon, X, ExternalLink, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchIdeate, fetchBlogIdeate, fetchVisualAsset, fetchBlogGenerate, saveImage, saveBlog, type PostIdea, type BlogTopic } from "@/services/api";
 import { addDays } from "date-fns";
+import { usePersistedState } from "@/lib/hooks/usePersistedState";
 
 interface CampaignSectionProps {
   userId: string;
@@ -17,46 +18,96 @@ type CampaignItemStatus = "pending" | "generating" | "completed" | "failed";
 interface CampaignItem {
     id: string;
     type: "blog" | "image";
-    title: string; // Message for image, Title for blog
+    title: string;
     status: CampaignItemStatus;
-    resultUrl?: string; // For image, can be full URL
-    resultSlug?: string; // For blog
+    resultUrl?: string;
+    resultSlug?: string;
     error?: string;
 }
 
+interface CampaignState {
+    step: "idle" | "ideating" | "review" | "executing" | "completed";
+    items: CampaignItem[];
+    blogCount: number;
+    imageCount: number;
+    campaignContext: string;
+    scheduledDate: string;
+    campaignInterval: "none" | "daily" | "weekly";
+    schedulingMode: "frequency" | "days";
+    postsPerWeek: number;
+    selectedWeekdays: number[];
+}
+
 export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: CampaignSectionProps) => {
-  const [campaignStep, setCampaignStep] = useState<"idle" | "ideating" | "review" | "executing" | "completed">("idle");
-  const [items, setItems] = useState<CampaignItem[]>([]);
+  // Persisted campaign state - survives refresh (2 hour TTL)
+  const [campaignState, setCampaignState] = usePersistedState<CampaignState>(
+    `campaign-${userId}-${brandId}`,
+    {
+      step: "idle",
+      items: [],
+      blogCount: 7,
+      imageCount: 7,
+      campaignContext: "",
+      scheduledDate: "",
+      campaignInterval: "none",
+      schedulingMode: "frequency",
+      postsPerWeek: 3,
+      selectedWeekdays: [],
+    },
+    { ttl: 1000 * 60 * 60 * 2 } // 2 hours TTL
+  );
+
+  // Ephemeral state (not persisted)
   const [logs, setLogs] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
-  const [blogCount, setBlogCount] = useState(7);
-  const [imageCount, setImageCount] = useState(7);
-  const [campaignContext, setCampaignContext] = useState("");
-  
-  // State for Modal
   const [selectedItem, setSelectedItem] = useState<CampaignItem | null>(null);
-  const [scheduledDate, setScheduledDate] = useState<string>("");
-  const [campaignInterval, setCampaignInterval] = useState<"none" | "daily" | "weekly">("none");
-  const [schedulingMode, setSchedulingMode] = useState<"frequency" | "days">("frequency");
-  const [postsPerWeek, setPostsPerWeek] = useState<number>(3);
-  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([]); // 1 (Mon) - 7 (Sun)
+
+  // Destructure persisted state for convenience
+  const {
+    step: campaignStep,
+    items,
+    blogCount,
+    imageCount,
+    campaignContext,
+    scheduledDate,
+    campaignInterval,
+    schedulingMode,
+    postsPerWeek,
+    selectedWeekdays,
+  } = campaignState;
+
+  // Update campaign state helpers
+  const updateCampaignState = (updates: Partial<CampaignState>) => {
+    setCampaignState((prev) => ({ ...prev, ...updates }));
+  };
 
   const addLog = (message: string) => {
     setLogs((prev) => [`[${new Date().toLocaleTimeString()}] ${message}`, ...prev]);
   };
 
+  // Clear campaign state when component unmounts or on explicit reset
+  const handleResetCampaign = () => {
+    setCampaignState((prev) => ({
+      ...prev,
+      step: "idle",
+      items: [],
+      logs: [],
+    }));
+    setLogs([]);
+    setProgress(0);
+  };
+
   const handleStartCampaign = async () => {
-    setCampaignStep("ideating");
+    updateCampaignState({ step: "ideating" });
     setLogs([]);
     addLog("Initializing Neural Campaign Engine...");
-    
+
     try {
         let allItems: CampaignItem[] = [];
 
         // 1. Fetch Blog Ideas
         if (blogCount > 0) {
             addLog(`Agent: Editorial Strategist - Generating ${blogCount} Blog Topics...`);
-            // Pass campaignContext to blog ideation
             const blogResp = await fetchBlogIdeate(userId, brandId, campaignContext, blogCount);
             const blogItems: CampaignItem[] = blogResp.topics.map((t, i) => ({
                 id: `blog-${i}`,
@@ -71,7 +122,6 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
         // 2. Fetch Image Ideas
         if (imageCount > 0) {
             addLog(`Agent: Creative Director - Generating ${imageCount} Visual Concepts...`);
-            // Pass campaignContext to image ideation
             const imgResp = await fetchIdeate(userId, brandId, imageCount, campaignContext);
             const imgItems: CampaignItem[] = imgResp.ideas.map((t, i) => ({
                  id: `image-${i}`,
@@ -83,66 +133,58 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
             allItems = [...allItems, ...imgItems];
         }
 
-        setItems(allItems);
-        setCampaignStep("review");
+        updateCampaignState({ items: allItems, step: "review" });
         addLog("Ideation Phase Complete. Awaiting approval to execute.");
 
     } catch (e: any) {
         addLog(`CRITICAL ERROR: Ideation failed - ${e.message}`);
-        setCampaignStep("idle");
+        updateCampaignState({ step: "idle" });
     }
   };
 
   const handleExecute = async () => {
-    setCampaignStep("executing");
+    updateCampaignState({ step: "executing" });
     addLog("Starting Execution Sequence...");
-    
+
     let completedCount = 0;
     const totalItems = items.length;
 
-    // Process items sequentially to show progress (and avoid rate limits if any)
-    // Process items sequentially to show progress (and avoid rate limits if any)
     const newItems = [...items];
     let blogIndex = 0;
 
     for (let i = 0; i < newItems.length; i++) {
         const item = newItems[i];
-        
-        // Update status to generating
+
         newItems[i] = { ...item, status: "generating" };
-        setItems([...newItems]);
-        
-        // Add a 2s delay to prevent rate limits
+        updateCampaignState({ items: [...newItems] });
+
         await new Promise(resolve => setTimeout(resolve, 2000));
-        
+
         try {
             if (item.type === "blog") {
                 addLog(`Generating Blog: "${item.title}"...`);
                 const blogContent = await fetchBlogGenerate(userId, brandId, item.title);
-                
+
                 addLog(`Saving Blog to Asset Hub...`);
 
                 let finalScheduledDate: Date | undefined;
                 if (scheduledDate) {
                     const baseDate = new Date(scheduledDate);
-                    
+
                     if (campaignInterval === "daily") {
                         finalScheduledDate = addDays(baseDate, blogIndex);
                     } else if (campaignInterval === "weekly") {
                         if (schedulingMode === "frequency") {
-                            // Even distribution: 7 days / frequency
                             const gap = 7 / postsPerWeek;
                             finalScheduledDate = addDays(baseDate, Math.floor(blogIndex * gap));
                         } else if (schedulingMode === "days" && selectedWeekdays.length > 0) {
-                            // Map specific days. Blog 0 = next upcoming selected day from baseDate, etc.
                             const sortedDays = [...selectedWeekdays].sort((a, b) => a - b);
                             let currentDate = new Date(baseDate);
                             let foundCount = 0;
                             let safety = 0;
-                            
+
                             while (foundCount <= blogIndex && safety < 1000) {
                                 safety++;
-                                // JS getDay() is 0 (Sun) - 6 (Sat). Our UI is 1 (Mon) - 7 (Sun).
                                 let currentDayNormalized = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
                                 if (sortedDays.includes(currentDayNormalized)) {
                                     if (foundCount === blogIndex) {
@@ -154,7 +196,6 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                                 currentDate = addDays(currentDate, 1);
                             }
                         } else {
-                            // Default to weekly if no days selected
                             finalScheduledDate = addDays(baseDate, blogIndex * 7);
                         }
                     } else {
@@ -171,7 +212,7 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                     status: finalScheduledDate ? "scheduled" : "published",
                     scheduled_at: finalScheduledDate ? finalScheduledDate.toISOString() : undefined
                 });
-                
+
                 newItems[i] = { ...item, status: "completed", resultSlug: blogContent.metadata.slug };
                 addLog(`Blog "${item.title}" completed & saved.`);
                 blogIndex++;
@@ -182,7 +223,7 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                     ? `[Campaign Goal: ${campaignContext}] Scene: ${item.title}`
                     : item.title;
                 const imgResp = await fetchVisualAsset(userId, brandId, enrichedMessage);
-                
+
                 if (imgResp.results && imgResp.results.length > 0) {
                      const imgResult = imgResp.results[0];
                      addLog(`Saving Image to Asset Hub...`);
@@ -205,12 +246,12 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
              addLog(`ERROR processing "${item.title}": ${e.message}`);
         }
 
-        setItems([...newItems]);
+        updateCampaignState({ items: [...newItems] });
         completedCount++;
         setProgress((completedCount / totalItems) * 100);
     }
 
-    setCampaignStep("completed");
+    updateCampaignState({ step: "completed" });
     addLog("CAMPAIGN EXECUTION COMPLETE.");
     addLog("All assets have been synced to the Asset Hub.");
   };
@@ -357,34 +398,34 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                 <div className="space-y-4 mb-6">
                     <div>
                         <label className="text-xs font-mono text-foreground/50 uppercase block mb-2">Campaign Context / Goal</label>
-                        <textarea 
+                        <textarea
                             value={campaignContext}
-                            onChange={(e) => setCampaignContext(e.target.value)}
+                            onChange={(e) => updateCampaignState({ campaignContext: e.target.value })}
                             placeholder="E.g. Summer Sale, focus on outdoor lifestyle, include text '50% OFF'"
                             className="w-full bg-card border border-card-border rounded-lg px-4 py-3 text-sm text-foreground focus:border-accent-primary focus:outline-none min-h-[80px] resize-none"
                         />
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="text-xs font-mono text-foreground/50 uppercase block mb-2">Blog Posts</label>
-                            <input 
-                                type="number" 
+                            <input
+                                type="number"
                                 min="0"
                                 max="20"
                                 value={blogCount}
-                                onChange={(e) => setBlogCount(parseInt(e.target.value) || 0)}
+                                onChange={(e) => updateCampaignState({ blogCount: parseInt(e.target.value) || 0 })}
                                 className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm text-foreground focus:border-accent-primary focus:outline-none"
                             />
                         </div>
                         <div>
                             <label className="text-xs font-mono text-foreground/50 uppercase block mb-2">Visual Assets</label>
-                            <input 
-                                type="number" 
+                            <input
+                                type="number"
                                 min="0"
                                 max="20"
                                 value={imageCount}
-                                onChange={(e) => setImageCount(parseInt(e.target.value) || 0)}
+                                onChange={(e) => updateCampaignState({ imageCount: parseInt(e.target.value) || 0 })}
                                 className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm text-foreground focus:border-accent-primary focus:outline-none"
                             />
                         </div>
@@ -395,10 +436,10 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                             <span>Schedule Publication</span>
                             {scheduledDate && <span className="text-accent-primary">Scheduled</span>}
                         </label>
-                        <input 
+                        <input
                             type="datetime-local"
                             value={scheduledDate}
-                            onChange={(e) => setScheduledDate(e.target.value)}
+                            onChange={(e) => updateCampaignState({ scheduledDate: e.target.value })}
                             className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm text-foreground focus:border-accent-primary focus:outline-none placeholder:text-foreground/30"
                         />
                         <p className="text-[10px] text-foreground/40 mt-1.5">
@@ -414,7 +455,7 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                                     {(["none", "daily", "weekly"] as const).map((interval) => (
                                         <button
                                             key={interval}
-                                            onClick={() => setCampaignInterval(interval)}
+                                            onClick={() => updateCampaignState({ campaignInterval: interval })}
                                             className={cn(
                                                 "px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-all border",
                                                 campaignInterval === interval
@@ -431,8 +472,8 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                             {campaignInterval === "weekly" && (
                                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                                     <div className="p-1 bg-card/50 rounded-xl border border-card-border flex">
-                                        <button 
-                                            onClick={() => setSchedulingMode("frequency")}
+                                        <button
+                                            onClick={() => updateCampaignState({ schedulingMode: "frequency" })}
                                             className={cn(
                                                 "flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all",
                                                 schedulingMode === "frequency" ? "bg-background text-foreground shadow-sm" : "text-foreground/30 hover:text-foreground/50"
@@ -440,8 +481,8 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                                         >
                                             Frequency
                                         </button>
-                                        <button 
-                                            onClick={() => setSchedulingMode("days")}
+                                        <button
+                                            onClick={() => updateCampaignState({ schedulingMode: "days" })}
                                             className={cn(
                                                 "flex-1 py-2 text-[10px] font-bold uppercase rounded-lg transition-all",
                                                 schedulingMode === "days" ? "bg-background text-foreground shadow-sm" : "text-foreground/30 hover:text-foreground/50"
@@ -454,9 +495,9 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                                     {schedulingMode === "frequency" ? (
                                         <div className="space-y-2">
                                             <label className="text-[10px] font-mono text-foreground/40 uppercase tracking-widest">Posts Per Week</label>
-                                            <select 
+                                            <select
                                                 value={postsPerWeek}
-                                                onChange={(e) => setPostsPerWeek(parseInt(e.target.value))}
+                                                onChange={(e) => updateCampaignState({ postsPerWeek: parseInt(e.target.value) })}
                                                 className="w-full bg-card border border-card-border rounded-lg px-4 py-2 text-sm focus:border-accent-primary focus:outline-none"
                                             >
                                                 <option value={1}>1 Post / Week</option>
@@ -472,15 +513,17 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                                             <label className="text-[10px] font-mono text-foreground/40 uppercase tracking-widest block">Select Publishing Days</label>
                                             <div className="flex flex-wrap gap-2">
                                                 {[
-                                                    { id: 1, label: "M" }, { id: 2, label: "T" }, { id: 3, label: "W" }, 
+                                                    { id: 1, label: "M" }, { id: 2, label: "T" }, { id: 3, label: "W" },
                                                     { id: 4, label: "T" }, { id: 5, label: "F" }, { id: 6, label: "S" }, { id: 7, label: "S" }
                                                 ].map((day) => (
                                                     <button
                                                         key={day.id}
                                                         onClick={() => {
-                                                            setSelectedWeekdays(prev => 
-                                                                prev.includes(day.id) ? prev.filter(d => d !== day.id) : [...prev, day.id]
-                                                            );
+                                                            updateCampaignState({
+                                                                selectedWeekdays: selectedWeekdays.includes(day.id)
+                                                                    ? selectedWeekdays.filter(d => d !== day.id)
+                                                                    : [...selectedWeekdays, day.id]
+                                                            });
                                                         }}
                                                         className={cn(
                                                             "w-8 h-8 rounded-full text-[10px] font-bold transition-all border flex items-center justify-center",
@@ -562,8 +605,8 @@ export const CampaignSection = ({ userId, brandId, onNavigateToAssetHub }: Campa
                      <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-2" />
                      <p className="font-bold text-lg">Mission Complete</p>
                      <p className="text-sm text-foreground/50 mb-4">All assets secured in Asset Hub.</p>
-                     <button 
-                        onClick={() => { setCampaignStep("idle"); setItems([]); setLogs([]); setProgress(0); }}
+                     <button
+                        onClick={handleResetCampaign}
                         className="glass-button w-full text-xs"
                     >
                          START NEW CAMPAIGN
